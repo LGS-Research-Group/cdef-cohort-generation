@@ -1,0 +1,81 @@
+[project]
+name = "cdef-cohort-generation"
+version = "0.1.0"
+description = "Add your description here"
+authors = [
+    { name = "Tobias Kragholm", email = "50784887+tkragholm@users.noreply.github.com" },
+]
+dependencies = [
+    "polars[all]>=1.9.0",
+    "rich>=13.9.2",
+    "pyreadr>=0.5.2",
+]
+readme = "README.md"
+requires-python = ">= 3.12"
+license = "MIT"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.rye]
+managed = true
+dev-dependencies = ["mypy>=1.11.2", "pytest>=8.3.3"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cdef_cohort_generation"]
+
+[tool.rye.scripts]
+test = "pytest tests/"
+static = "mypy --strict src/"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+fix = true
+
+[tool.ruff.lint]
+select = ["E", "B", "F", "UP", "I001", "T203"]
+
+[tool.mypy]
+# Enable strict mode (enables a combination of options listed below)
+strict = true
+
+# Disallow dynamic typing by requiring type annotations for all functions and variables
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+
+# Require explicit typing for function arguments and return types
+disallow_any_generics = true
+
+# Disallow the use of `Any` in type signatures
+#disallow_any_explicit = true
+#disallow_any_expr = true
+#disallow_any_unimported = true
+#disallow_any_decorated = true
+
+# Require explicit `Optional` types (disallows implicit `Optional` in case of None)
+no_implicit_optional = true
+
+# Report unnecessary type casts
+warn_redundant_casts = true
+
+# Report unreachable code after conditionals or return statements
+warn_unreachable = true
+
+# Report unused "ignores"
+warn_unused_ignores = true
+
+# Disallow equality checks between incompatible types
+strict_equality = true
+
+# Warn about possibly incorrect return types
+warn_return_any = true
+
+# Disable unused imports and unused variables (optional)
+check_untyped_defs = true
