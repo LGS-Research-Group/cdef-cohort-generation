@@ -33,51 +33,6 @@ BEF_SCHEMA = {
     "VERSION": pl.Utf8,
 }
 
-REG = {  # Region
-    0: "Uoplyst",
-    81: "Nordjylland",
-    82: "Midtjylland",
-    83: "Syddanmark",
-    84: "Hovedstaden",
-    85: "Sjælland",
-}
-
-PLADS = {  # Plads
-    1: "Hovedperson",
-    2: "Ægtefælle/partner",
-    3: "Hjemmeboende barn",
-}
-
-HUSTYPE = {  # Husstandstype
-    1: "En enlig mand",
-    2: "En enlig kvinde",
-    3: "Et ægtepar",
-    4: "Et par i øvrigt",
-    5: "Et ikke-hjemmeboende barn under 18 år",
-    6: "Husstand bestående af flere familier",
-}
-
-FM_MARK = {  # Familie markering
-    1: "Bor sammen med begge forældrene",
-    2: "For børn: Bor hos mor, der er i nyt par. For voksne: Bor sammen med mor.",
-    3: "For børn: Bor hos enlig mor. For voksneVværdien findes ikke.",
-    4: "For børn: Bor hos far, der er i nyt par. For voksne: Bor sammen med far.",
-    5: "For børn: Bor hos enlig far. For voksne: Værdien findes ikke.",
-    6: "Bor ikke hos forældrene",
-}
-
-CIVST = {  # Civilstand
-    "D": "Død",
-    "E": "Enke/Enkemand",
-    "F": "Skilt",
-    "G": "Gift (+ separeret)",
-    "L": "Længstlevende af 2 partnere",
-    "O": "Ophævet partnerskab",
-    "P": "Registreret partnerskab",
-    "U": "Ugift",
-    "9": "Uoplyst civilstand",
-}
-
 
 def process_bef() -> None:
     process_register_data(
