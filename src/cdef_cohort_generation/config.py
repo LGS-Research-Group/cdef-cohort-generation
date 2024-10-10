@@ -7,6 +7,7 @@ POPULATION_FILE = DATA_DIR / "population.parquet"
 COHORT_FILE = DATA_DIR / "cohort.parquet"
 ISCED_FILE = DATA_DIR / "isced.parquet"
 ICD_FILE = DATA_DIR / "icd10dict.csv"
+RDAT_FILE = Path("path/to/your/uddf.rda")
 PARQUETS = "*.parquet"
 PARQUET_SUFFIX = ".parquet"
 BIRTH_INCLUSION_START_YEAR = 1995

@@ -3,8 +3,10 @@ from pathlib import Path
 
 import polars as pl
 import polars.selectors as cs
+import pyreadr  # type: ignore
 
-from cdef_cohort_generation.config import ICD_FILE
+from cdef_cohort_generation.config import ICD_FILE, ISCED_FILE, RDAT_FILE
+from cdef_cohort_generation.logging_config import log
 
 
 def parse_dates(col_name: str) -> pl.Expr:
@@ -27,6 +29,37 @@ def parse_dates(col_name: str) -> pl.Expr:
     )
 
 
+def read_isced_data() -> pl.LazyFrame:
+    """Read and process ISCED data from Rdata file."""
+    try:
+        if ISCED_FILE.exists():
+            log("Reading ISCED data from existing parquet file...")
+            return pl.scan_parquet(ISCED_FILE)
+        else:
+            log("Processing ISCED data from Rdata file...")
+            result = pyreadr.read_r(RDAT_FILE, use_objects=["uddf"])
+            isced_data = pl.from_dict(result)
+            isced_data = isced_data.select(
+                pl.col("uddf").struct.field("HFAUDD").cast(pl.Utf8),
+                pl.col("uddf").struct.field("HFAUDD_isced"),
+            )
+            isced_final = (
+                isced_data.with_columns(
+                    [
+                        pl.col("HFAUDD").str.strip_suffix(".0"),
+                        pl.col("HFAUDD_isced").str.slice(0, 1).alias("EDU_LVL"),
+                    ]
+                )
+                .unique()
+                .select(["HFAUDD", "EDU_LVL"])
+            )
+            isced_final.write_parquet(ISCED_FILE)
+            return isced_final.lazy()
+    except Exception as e:
+        log(f"Error processing ISCED data: {e}")
+        raise
+
+
 def process_register_data(
     input_files: Path,
     output_file: Path,
@@ -36,6 +69,7 @@ def process_register_data(
     columns_to_keep: list[str] | None = None,
     join_on: str | list[str] = "PNR",
     join_parents_only: bool = False,
+    register_name: str = "",
 ) -> None:
     """
     Process register data, join with population data, and save the result.
@@ -49,6 +83,7 @@ def process_register_data(
     columns_to_keep (Optional[List[str]]): List of columns to keep in the final output.
     join_on (str | List[str]): Column(s) to join on. Default is "PNR".
     join_parents_only (bool): If True, only join on FAR_ID and MOR_ID. Default is False.
+    register_name (str): Name of the register being processed. Default is "".
 
     Returns:
     None
@@ -64,6 +99,11 @@ def process_register_data(
     # Select specific columns if specified
     if columns_to_keep:
         data = data.select(columns_to_keep)
+
+    # Special handling for UDDF register
+    if register_name.lower() == "uddf":
+        isced_data = read_isced_data()
+        data = data.join(isced_data, left_on="HFAUDD", right_on="HFAUDD", how="left")
 
     # Read in the population file
     population = pl.scan_parquet(population_file)
@@ -94,12 +134,12 @@ def process_register_data(
     result.collect().write_parquet(output_file)
 
 
-def read_icd_descriptions() -> pl.DataFrame:
+def read_icd_descriptions() -> pl.LazyFrame:
     """Read ICD-10 code descriptions."""
-    return pl.read_csv(ICD_FILE)
+    return pl.scan_csv(ICD_FILE)
 
 
-def apply_scd_algorithm(df: pl.DataFrame) -> pl.DataFrame:
+def apply_scd_algorithm(df: pl.LazyFrame) -> pl.LazyFrame:
     """Apply the SCD (Severe Chronic Disease) algorithm."""
     icd_prefixes = [
         "C",
@@ -221,7 +261,7 @@ def apply_scd_algorithm(df: pl.DataFrame) -> pl.DataFrame:
     return df_with_scd
 
 
-def add_icd_descriptions(df: pl.DataFrame, icd_descriptions: pl.DataFrame) -> pl.DataFrame:
+def add_icd_descriptions(df: pl.LazyFrame, icd_descriptions: pl.LazyFrame) -> pl.LazyFrame:
     """Add ICD-10 descriptions to the dataframe."""
     return (
         df.with_columns(

@@ -29,7 +29,7 @@ from cdef_cohort_generation.registers.uddf import process_uddf
 from cdef_cohort_generation.utils import apply_scd_algorithm
 
 
-def identify_severe_chronic_disease() -> pl.DataFrame:
+def identify_severe_chronic_disease() -> pl.LazyFrame:
     """
     Process health data and identify children with severe chronic diseases.
 
@@ -45,11 +45,11 @@ def identify_severe_chronic_disease() -> pl.DataFrame:
     process_lpr3_kontakter()
 
     # Step 2: Read processed health data
-    lpr_adm = pl.read_parquet(LPR_ADM_OUT)
-    lpr_diag = pl.read_parquet(LPR_DIAG_OUT)
-    lpr_bes = pl.read_parquet(LPR_BES_OUT)
-    lpr3_diagnoser = pl.read_parquet(LPR3_DIAGNOSER_OUT)
-    lpr3_kontakter = pl.read_parquet(LPR3_KONTAKTER_OUT)
+    lpr_adm = pl.scan_parquet(LPR_ADM_OUT)
+    lpr_diag = pl.scan_parquet(LPR_DIAG_OUT)
+    lpr_bes = pl.scan_parquet(LPR_BES_OUT)
+    lpr3_diagnoser = pl.scan_parquet(LPR3_DIAGNOSER_OUT)
+    lpr3_kontakter = pl.scan_parquet(LPR3_KONTAKTER_OUT)
 
     # Step 3: Combine LPR2 data
     lpr2 = lpr_adm.join(lpr_diag, on="RECNUM", how="left")
@@ -73,7 +73,7 @@ def identify_severe_chronic_disease() -> pl.DataFrame:
     )
 
 
-def process_cohort_data(scd_data: pl.DataFrame, output_file: Path) -> None:
+def process_cohort_data(scd_data: pl.LazyFrame, output_file: Path) -> None:
     """
     Process cohort data by joining SCD information with population and other register data.
 
@@ -83,7 +83,7 @@ def process_cohort_data(scd_data: pl.DataFrame, output_file: Path) -> None:
     """
 
     # Step 1: Read population data
-    population = pl.read_parquet(POPULATION_FILE)
+    population = pl.scan_parquet(POPULATION_FILE)
 
     # Step 2: Join SCD data with population
     cohort = population.join(scd_data, on="PNR", how="left")
@@ -97,7 +97,7 @@ def process_cohort_data(scd_data: pl.DataFrame, output_file: Path) -> None:
 
     other_registers = [BEF_OUT, UDDF_OUT, AKM_OUT, IND_OUT, IDAN_OUT]
     for register in other_registers:
-        register_data = pl.read_parquet(register)
+        register_data = pl.scan_parquet(register)
         cohort = cohort.join(register_data, on="PNR", how="left")
 
     # Step 4: Add additional information
@@ -109,7 +109,7 @@ def process_cohort_data(scd_data: pl.DataFrame, output_file: Path) -> None:
     )
 
     # Step 5: Write output to file
-    cohort.write_parquet(output_file)
+    cohort.collect().write_parquet(output_file)
     print(f"Cohort data written to {output_file}")
 
 

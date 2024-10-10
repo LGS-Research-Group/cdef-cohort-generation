@@ -35,6 +35,7 @@ def process_uddf(columns_to_keep: list[str] | None = None) -> None:
         date_columns=["HF_VFRA", "HF_VTIL"],
         columns_to_keep=columns,
         join_parents_only=True,
+        register_name="UDDF",
     )
 
 
