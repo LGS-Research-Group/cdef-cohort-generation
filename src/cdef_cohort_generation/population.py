@@ -1,15 +1,12 @@
-from pathlib import Path
-
 import polars as pl
 
+from cdef_cohort_generation.config import BEF_FILES, POPULATION_FILE
 from cdef_cohort_generation.utils import parse_dates
-
-FAM_OUT = Path("data/01_family/cohort.parquet")
 
 
 def main() -> None:
     # Read all bef parquet files
-    bef_files = "directory/with/bef/files/*.parquet"
+    bef_files = BEF_FILES
     bef = pl.scan_parquet(bef_files, allow_missing_columns=True).with_columns(
         [parse_dates("FOED_DAG").alias("FOED_DAG_PARSED")]
     )
@@ -63,7 +60,7 @@ def main() -> None:
     family = family.select(
         [
             "PNR",
-            "FOED_DAG_PARSED",
+            pl.col("FOED_DAG_PARSED").alias("FOED_DAG"),
             "FAR_ID",
             "FAR_FDAG",
             "MOR_ID",
@@ -72,11 +69,8 @@ def main() -> None:
         ]
     )
 
-    # Print output to terminal
-    print(family)
-
     # Write result into parquet file
-    family.write_parquet(FAM_OUT / "family.parquet")
+    family.write_parquet(POPULATION_FILE)
 
 
 if __name__ == "__main__":
