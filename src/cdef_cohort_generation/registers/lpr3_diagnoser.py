@@ -3,7 +3,7 @@ import polars as pl
 from cdef_cohort_generation.config import LPR3_DIAGNOSER_FILES, LPR3_DIAGNOSER_OUT, POPULATION_FILE
 from cdef_cohort_generation.utils import process_register_data
 
-LPR3_DIAGNOSER_SCHEMA: dict[str, pl.DataType] = {  # type: ignore
+LPR3_DIAGNOSER_SCHEMA = {
     "DW_EK_KONTAKT": pl.Utf8,
     "diagnosekode": pl.Utf8,
     "diagnosetype": pl.Utf8,

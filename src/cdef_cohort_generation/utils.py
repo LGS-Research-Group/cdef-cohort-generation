@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from pathlib import Path
 
 import polars as pl
@@ -27,7 +28,7 @@ def process_register_data(
     input_files: Path,
     output_file: Path,
     population_file: Path,
-    schema: dict[str, pl.DataType],
+    schema: Mapping[str, pl.DataType | type[pl.DataType]],
     date_columns: list[str] | None = None,
     columns_to_keep: list[str] | None = None,
 ) -> None:
