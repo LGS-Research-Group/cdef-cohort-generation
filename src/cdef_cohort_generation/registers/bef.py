@@ -1,7 +1,7 @@
 import polars as pl
 
 from cdef_cohort_generation.config import BEF_FILES, BEF_OUT, POPULATION_FILE
-from cdef_cohort_generation.utils import parse_dates
+from cdef_cohort_generation.utils import process_register_data
 
 BEF_SCHEMA = {
     "AEGTE_ID": pl.Utf8,
@@ -79,16 +79,14 @@ CIVST = {  # Civilstand
 }
 
 
-def main() -> None:
-    # Read all bef parquet files
-    bef_files = BEF_FILES
-    bef = pl.scan_parquet(bef_files, allow_missing_columns=True).with_columns(
-        [parse_dates("FOED_DAG").alias("FOED_DAG"), parse_dates("BOP_VFRA").alias("BOP_VFRA")]
-    )
-
-    # Discard columns we do not needed
-    bef = bef.select(
-        [
+def process_bef() -> None:
+    process_register_data(
+        input_files=BEF_FILES,
+        output_file=BEF_OUT,
+        population_file=POPULATION_FILE,
+        schema=BEF_SCHEMA,
+        date_columns=["FOED_DAG", "BOP_VFRA"],
+        columns_to_keep=[
             "AEGTE_ID",
             "ALDER",
             "ANTBOERNF",
@@ -99,32 +97,23 @@ def main() -> None:
             "CIVST",
             "E_FAELLE_ID",
             "FAMILIE_ID",
-            "FAMILIE_TYPE",  # ved ikke hvordan den her varible ser ud
+            "FAMILIE_TYPE",
             "FAR_ID",
             "FM_MARK",
             "FOED_DAG",
             "HUSTYPE",
-            "IE_TYPE",  # ved ikke hvordan den her varible ser ud
-            "KOEN",  # ved ikke hvordan den her varible ser ud
-            "KOM",  # 2-3 cifret kode
+            "IE_TYPE",
+            "KOEN",
+            "KOM",
             "MOR_ID",
-            "OPR_LAND",  # ved ikke hvordan den har varitable ser ud
+            "OPR_LAND",
             "PLADS",
             "PNR",
             "REG",
             "STATSB",
-        ]
+        ],
     )
-
-    # Read in population file to merge with
-    population = pl.read_parquet(POPULATION_FILE)
-
-    # Write result into parquet file
-    population.write_parquet(BEF_OUT)
 
 
 if __name__ == "__main__":
-    from typing import TYPE_CHECKING
-
-    if not TYPE_CHECKING:
-        main()
+    process_bef()

@@ -1,7 +1,7 @@
 import polars as pl
 
 from cdef_cohort_generation.config import AKM_FILES, AKM_OUT, POPULATION_FILE
-from cdef_cohort_generation.utils import parse_dates
+from cdef_cohort_generation.utils import process_register_data
 
 AKM_SCHEMA = {
     "PNR": pl.Utf8,
@@ -40,15 +40,19 @@ SOCIO13_map = {
 }
 
 
-def main() -> None:
-    # Read all bef parquet files
-    akm_files = AKM_FILES
-    akm = pl.scan_parquet(akm_files, allow_missing_columns=True).with_columns(
-        [parse_dates("FOED_DAG"), parse_dates("BOP_VFRA")]
+def process_akm() -> None:
+    process_register_data(
+        input_files=AKM_FILES,
+        output_file=AKM_OUT,
+        population_file=POPULATION_FILE,
+        schema=AKM_SCHEMA,
+        columns_to_keep=[
+            "PNR",
+            "SOCIO13",
+            "SENR",
+        ],
     )
 
-    # Read in the population file and join with the akm data
-    population = pl.scan_parquet(POPULATION_FILE).join(akm, on="PNR", how="left").collect()
 
-    # Save the data
-    population.write_parquet(AKM_OUT)
+if __name__ == "__main__":
+    process_akm()

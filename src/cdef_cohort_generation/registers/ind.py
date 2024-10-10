@@ -1,5 +1,8 @@
 import polars as pl
 
+from cdef_cohort_generation.config import IND_FILES, IND_OUT, POPULATION_FILE
+from cdef_cohort_generation.utils import process_register_data
+
 IND_SCHEMA = {
     "BESKST13": pl.Int8,  # Kode for personens væsentligste indkomstkilde
     "CPRTJEK": pl.Utf8,
@@ -46,3 +49,21 @@ PRE_SOCIO_map = {
     410: "Andre",
     420: "Børn under 15 år ultimo året",
 }
+
+def process_ind() -> None:
+    process_register_data(
+        input_files=IND_FILES,
+        output_file=IND_OUT,
+        population_file=POPULATION_FILE,
+        schema=IND_SCHEMA,
+        columns_to_keep=[
+            "PNR",
+            "BESKST13",
+            "LOENMV_13",
+            "PERINDKIALT_13",
+            "PRE_SOCIO",
+        ],
+    )
+
+if __name__ == "__main__":
+    process_ind()

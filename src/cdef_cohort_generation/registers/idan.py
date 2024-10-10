@@ -1,6 +1,7 @@
 import polars as pl
 
 from cdef_cohort_generation.config import IDAN_FILES, IDAN_OUT, POPULATION_FILE
+from cdef_cohort_generation.utils import process_register_data
 
 IDAN_SCHEMA = {
     "ARBGNR": pl.Utf8,  # Arbejdsgivernummer
@@ -50,15 +51,25 @@ TILKNYT_map = {
 }
 
 
-def main() -> None:
-    # Read all bef parquet files
-    idan_files = IDAN_FILES
-    idan = pl.scan_parquet(idan_files, allow_missing_columns=True).with_columns(
-        # [parse_dates("FOED_DAG"), parse_dates("BOP_VFRA")]
+def process_idan() -> None:
+    process_register_data(
+        input_files=IDAN_FILES,
+        output_file=IDAN_OUT,
+        population_file=POPULATION_FILE,
+        schema=IDAN_SCHEMA,
+        columns_to_keep=[
+            "PNR",
+            "ARBGNR",
+            "ARBNR",
+            "CVRNR",
+            "JOBKAT",
+            "JOBLON",
+            "LBNR",
+            "STILL",
+            "TILKNYT",
+        ],
     )
 
-    # Read in the population file and join with the akm data
-    population = pl.scan_parquet(POPULATION_FILE).join(idan, on="PNR", how="left").collect()
 
-    # Save the data
-    population.write_parquet(IDAN_OUT)
+if __name__ == "__main__":
+    process_idan()
