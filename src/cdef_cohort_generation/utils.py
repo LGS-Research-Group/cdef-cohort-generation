@@ -2,6 +2,9 @@ from collections.abc import Mapping
 from pathlib import Path
 
 import polars as pl
+import polars.selectors as cs
+
+from cdef_cohort_generation.config import ICD_FILE
 
 
 def parse_dates(col_name: str) -> pl.Expr:
@@ -12,7 +15,7 @@ def parse_dates(col_name: str) -> pl.Expr:
         pl.col(col_name).str.strptime(pl.Date, "%m/%d/%Y", strict=False),
         pl.col(col_name).str.strptime(pl.Date, "%Y/%m/%d %H:%M:%S", strict=False),
         pl.col(col_name).str.strptime(pl.Date, "%m/%d/%y", strict=False),
-        # LPR3 Format for dates
+        # LPR3 format for dates
         pl.col(col_name).str.strptime(pl.Date, "%d%b%Y", strict=False),
         # Then formats with '-' separator
         pl.col(col_name).str.strptime(pl.Date, "%Y-%m-%d", strict=False),
@@ -31,17 +34,21 @@ def process_register_data(
     schema: Mapping[str, pl.DataType | type[pl.DataType]],
     date_columns: list[str] | None = None,
     columns_to_keep: list[str] | None = None,
+    join_on: str | list[str] = "PNR",
+    join_parents_only: bool = False,
 ) -> None:
     """
     Process register data, join with population data, and save the result.
 
     Args:
-    input_files (List[Path]): List of input parquet files.
+    input_files (Path): Path to input parquet files.
     output_file (Path): Path to save the output parquet file.
     population_file (Path): Path to the population parquet file.
     schema (Dict[str, pl.DataType]): Schema for the input data.
     date_columns (Optional[List[str]]): List of column names to parse as dates.
     columns_to_keep (Optional[List[str]]): List of columns to keep in the final output.
+    join_on (str | List[str]): Column(s) to join on. Default is "PNR".
+    join_parents_only (bool): If True, only join on FAR_ID and MOR_ID. Default is False.
 
     Returns:
     None
@@ -61,8 +68,180 @@ def process_register_data(
     # Read in the population file
     population = pl.scan_parquet(population_file)
 
-    # Join the data with the population file
-    result = population.join(data, on="PNR", how="left").collect()
+    # Prepare result dataframe
+    result = population
 
-    # Save the result
-    result.write_parquet(output_file)
+    # If joining on parents, we need to join twice more for parent-specific data
+    if join_parents_only:
+        result = result.join(
+            data.select(cs.starts_with("FAR_")),
+            left_on="FAR_ID",
+            right_on=f"FAR_{join_on}",
+            how="left",
+        )
+        result = result.join(
+            data.select(cs.starts_with("MOR_")),
+            left_on="MOR_ID",
+            right_on=f"MOR_{join_on}",
+            how="left",
+        )
+    else:
+        # Join on specified column(s)
+        join_columns = [join_on] if isinstance(join_on, str) else join_on
+        result = result.join(data, on=join_columns, how="left")
+
+    # Collect and save the result
+    result.collect().write_parquet(output_file)
+
+
+def read_icd_descriptions() -> pl.DataFrame:
+    """Read ICD-10 code descriptions."""
+    return pl.read_csv(ICD_FILE)
+
+
+def apply_scd_algorithm(df: pl.DataFrame) -> pl.DataFrame:
+    """Apply the SCD (Severe Chronic Disease) algorithm."""
+    icd_prefixes = [
+        "C",
+        "D61",
+        "D76",
+        "D8",
+        "E10",
+        "E25",
+        "E7",
+        "G12",
+        "G31",
+        "G37",
+        "G40",
+        "G60",
+        "G70",
+        "G71",
+        "G73",
+        "G80",
+        "G81",
+        "G82",
+        "G91",
+        "G94",
+        "I12",
+        "I27",
+        "I3",
+        "I4",
+        "I5",
+        "J44",
+        "J84",
+        "K21",
+        "K5",
+        "K7",
+        "K90",
+        "M3",
+        "N0",
+        "N13",
+        "N18",
+        "N19",
+        "N25",
+        "N26",
+        "N27",
+        "P27",
+        "P57",
+        "P91",
+        "Q0",
+        "Q2",
+        "Q3",
+        "Q4",
+        "Q6",
+        "Q79",
+        "Q86",
+        "Q87",
+        "Q9",
+    ]
+    specific_codes = [
+        "D610",
+        "D613",
+        "D618",
+        "D619",
+        "D762",
+        "E730",
+        "G310",
+        "G318",
+        "G319",
+        "G702",
+        "G710",
+        "G711",
+        "G712",
+        "G713",
+        "G736",
+        "G811",
+        "G821",
+        "G824",
+        "G941",
+        "J448",
+        "P910",
+        "P911",
+        "P912",
+        "Q790",
+        "Q792",
+        "Q793",
+        "Q860",
+    ]
+
+    df_with_scd = df.with_columns(
+        is_scd=(
+            pl.col("C_ADIAG").str.to_uppercase().str.slice(1, 4).is_in(icd_prefixes)
+            | (
+                (pl.col("C_ADIAG").str.to_uppercase().str.slice(1, 4) >= "E74")
+                & (pl.col("C_ADIAG").str.to_uppercase().str.slice(1, 4) <= "E84")
+            )
+            | pl.col("C_ADIAG").str.to_uppercase().str.slice(1, 5).is_in(specific_codes)
+            | (
+                (pl.col("C_ADIAG").str.to_uppercase().str.slice(1, 5) >= "P941")
+                & (pl.col("C_ADIAG").str.to_uppercase().str.slice(1, 5) <= "P949")
+            )
+            | pl.col("C_DIAG").str.to_uppercase().str.slice(1, 4).is_in(icd_prefixes)
+            | (
+                (pl.col("C_DIAG").str.to_uppercase().str.slice(1, 4) >= "E74")
+                & (pl.col("C_DIAG").str.to_uppercase().str.slice(1, 4) <= "E84")
+            )
+            | pl.col("C_DIAG").str.to_uppercase().str.slice(1, 5).is_in(specific_codes)
+            | (
+                (pl.col("C_DIAG").str.to_uppercase().str.slice(1, 5) >= "P941")
+                & (pl.col("C_DIAG").str.to_uppercase().str.slice(1, 5) <= "P949")
+            )
+        )
+    )
+
+    # Add first SCD diagnosis date
+    df_with_scd = df_with_scd.with_columns(
+        first_scd_date=pl.when(pl.col("is_scd"))
+        .then(pl.col("D_INDDTO"))
+        .otherwise(None)
+        .first()
+        .over("PNR")
+    )
+
+    return df_with_scd
+
+
+def add_icd_descriptions(df: pl.DataFrame, icd_descriptions: pl.DataFrame) -> pl.DataFrame:
+    """Add ICD-10 descriptions to the dataframe."""
+    return (
+        df.with_columns(
+            [
+                pl.col("C_ADIAG").str.slice(1).alias("icd_code_adiag"),
+                pl.col("C_DIAG").str.slice(1).alias("icd_code_diag"),
+            ]
+        )
+        .join(
+            icd_descriptions,
+            left_on="icd_code_adiag",
+            right_on="icd10",
+            how="left",
+        )
+        .join(
+            icd_descriptions,
+            left_on="icd_code_diag",
+            right_on="icd10",
+            how="left",
+            suffix="_diag",
+        )
+        .drop(["icd_code_adiag", "icd_code_diag"])
+    )

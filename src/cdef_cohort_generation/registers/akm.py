@@ -15,17 +15,21 @@ AKM_SCHEMA = {
 }
 
 
-def process_akm() -> None:
+def process_akm(columns_to_keep: list[str] | None = None) -> None:
+    default_columns = [
+        "PNR",
+        "SOCIO13",
+        "SENR",
+    ]
+    # Use default_columns if columns_to_keep is None
+    columns = columns_to_keep if columns_to_keep is not None else default_columns
     process_register_data(
         input_files=AKM_FILES,
         output_file=AKM_OUT,
         population_file=POPULATION_FILE,
         schema=AKM_SCHEMA,
-        columns_to_keep=[
-            "PNR",
-            "SOCIO13",
-            "SENR",
-        ],
+        columns_to_keep=columns,
+        join_parents_only=True,
     )
 
 

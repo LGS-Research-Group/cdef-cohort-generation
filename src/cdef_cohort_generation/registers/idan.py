@@ -18,23 +18,27 @@ IDAN_SCHEMA = {
 }
 
 
-def process_idan() -> None:
+def process_idan(columns_to_keep: list[str] | None = None) -> None:
+    default_columns = [
+        "PNR",
+        "ARBGNR",
+        "ARBNR",
+        "CVRNR",
+        "JOBKAT",
+        "JOBLON",
+        "LBNR",
+        "STILL",
+        "TILKNYT",
+    ]
+    # Use default_columns if columns_to_keep is None
+    columns = columns_to_keep if columns_to_keep is not None else default_columns
     process_register_data(
         input_files=IDAN_FILES,
         output_file=IDAN_OUT,
         population_file=POPULATION_FILE,
         schema=IDAN_SCHEMA,
-        columns_to_keep=[
-            "PNR",
-            "ARBGNR",
-            "ARBNR",
-            "CVRNR",
-            "JOBKAT",
-            "JOBLON",
-            "LBNR",
-            "STILL",
-            "TILKNYT",
-        ],
+        columns_to_keep=columns,
+        join_parents_only=True,
     )
 
 

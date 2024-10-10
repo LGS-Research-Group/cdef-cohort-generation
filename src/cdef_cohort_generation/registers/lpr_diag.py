@@ -13,7 +13,9 @@ LPR_DIAG_SCHEMA = {
 }
 
 
-def process_lpr_diag() -> None:
+def process_lpr_diag(columns_to_keep: list[str] | None = None) -> None:
+    default_columns = ["C_DIAG", "C_DIAGTYPE", "RECNUM"]
+    columns = columns_to_keep if columns_to_keep is not None else default_columns
     process_register_data(
         input_files=LPR_DIAG_FILES,
         output_file=LPR_DIAG_OUT,
@@ -22,10 +24,5 @@ def process_lpr_diag() -> None:
         date_columns=[
             "LEVERANCEDATO",
         ],
-        columns_to_keep=[
-            "C_DIAG",
-            "C_DIAGTYPE",
-            "C_TILDIAG",
-            "RECNUM",
-        ],
+        columns_to_keep=columns,
     )

@@ -15,19 +15,23 @@ IND_SCHEMA = {
 }
 
 
-def process_ind() -> None:
+def process_ind(columns_to_keep: list[str] | None = None) -> None:
+    default_columns = [
+        "PNR",
+        "BESKST13",
+        "LOENMV_13",
+        "PERINDKIALT_13",
+        "PRE_SOCIO",
+    ]
+    # Use default_columns if columns_to_keep is None
+    columns = columns_to_keep if columns_to_keep is not None else default_columns
     process_register_data(
         input_files=IND_FILES,
         output_file=IND_OUT,
         population_file=POPULATION_FILE,
         schema=IND_SCHEMA,
-        columns_to_keep=[
-            "PNR",
-            "BESKST13",
-            "LOENMV_13",
-            "PERINDKIALT_13",
-            "PRE_SOCIO",
-        ],
+        columns_to_keep=columns,
+        join_parents_only=True,
     )
 
 

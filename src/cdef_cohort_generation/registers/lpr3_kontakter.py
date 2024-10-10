@@ -27,15 +27,15 @@ LPR3_KONTAKTER_SCHEMA = {
 }
 
 
-def process_lpr3_kontakter() -> None:
+def process_lpr3_kontakter(columns_to_keep: list[str] | None = None) -> None:
+    default_columns = ["DW_EK_KONTAKT", "CPR", "dato_start", "dato_slut", "aktionsdiagnose"]
+
+    columns = columns_to_keep if columns_to_keep is not None else default_columns
     process_register_data(
         input_files=LPR3_KONTAKTER_FILES,
         output_file=LPR3_KONTAKTER_OUT,
         population_file=POPULATION_FILE,
         schema=LPR3_KONTAKTER_SCHEMA,
         date_columns=["dato_slut", "dato_start", "dato_behandling_start", "dato_indberetning"],
-        columns_to_keep=[
-            "D_AMBDTO",
-            "RECNUM",
-        ],
+        columns_to_keep=columns,
     )

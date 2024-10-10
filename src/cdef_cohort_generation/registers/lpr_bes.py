@@ -11,15 +11,14 @@ LPR_BES_SCHEMA = {
 }
 
 
-def process_lpr_bes() -> None:
+def process_lpr_bes(columns_to_keep: list[str] | None = None) -> None:
+    default_columns = ["D_AMBDTO", "RECNUM"]
+    columns = columns_to_keep if columns_to_keep is not None else default_columns
     process_register_data(
         input_files=LPR_BES_FILES,
         output_file=LPR_BES_OUT,
         population_file=POPULATION_FILE,
         schema=LPR_BES_SCHEMA,
         date_columns=["D_AMBDTO", "LEVERANCEDATO"],
-        columns_to_keep=[
-            "D_AMBDTO",
-            "RECNUM",
-        ],
+        columns_to_keep=columns,
     )

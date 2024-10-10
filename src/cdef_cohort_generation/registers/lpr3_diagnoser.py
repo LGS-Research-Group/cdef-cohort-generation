@@ -14,21 +14,15 @@ LPR3_DIAGNOSER_SCHEMA = {
 }
 
 
-def process_lpr3_diagnoser() -> None:
+def process_lpr3_diagnoser(columns_to_keep: list[str] | None = None) -> None:
+    default_columns = ["DW_EK_KONTAKT", "diagnosekode", "diagnosetype"]
+    columns = columns_to_keep if columns_to_keep is not None else default_columns
     process_register_data(
         input_files=LPR3_DIAGNOSER_FILES,
         output_file=LPR3_DIAGNOSER_OUT,
         population_file=POPULATION_FILE,
         schema=LPR3_DIAGNOSER_SCHEMA,
-        columns_to_keep=[
-            "DW_EK_KONTAKT",
-            "diagnosekode",
-            "diagnosetype",
-            "senere_afkraeftet",
-            "diagnosekode_parent",
-            "diagnosetype_parent",
-            "lprindberetningssystem",
-        ],
+        columns_to_keep=columns,
     )
 
 

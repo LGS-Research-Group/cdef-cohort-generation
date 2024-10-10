@@ -34,7 +34,19 @@ LPR_ADM_SCHEMA = {
 }
 
 
-def process_lpr_adm() -> None:
+def process_lpr_adm(columns_to_keep: list[str] | None = None) -> None:
+    default_columns = [
+        "PNR",
+        "C_ADIAG",
+        "D_INDDTO",
+        "D_UDDTO",
+        "RECNUM",
+        "C_KOM",
+        "C_SGH",
+        "C_AFD",
+        "C_PATTYPE",
+    ]
+    columns = columns_to_keep if columns_to_keep is not None else default_columns
     process_register_data(
         input_files=LPR_ADM_FILES,
         output_file=LPR_ADM_OUT,
@@ -45,6 +57,7 @@ def process_lpr_adm() -> None:
             "D_INDDTO",
             "D_UDDTO",
         ],
+        columns_to_keep=columns,
     )
 
 

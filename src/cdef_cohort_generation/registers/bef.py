@@ -34,39 +34,43 @@ BEF_SCHEMA = {
 }
 
 
-def process_bef() -> None:
+def process_bef(columns_to_keep: list[str] | None = None) -> None:
+    default_columns = [
+        "AEGTE_ID",
+        "ALDER",
+        "ANTBOERNF",
+        "ANTBOERNH",
+        "ANTPERSF",
+        "ANTPERSH",
+        "BOP_VFRA",
+        "CIVST",
+        "E_FAELLE_ID",
+        "FAMILIE_ID",
+        "FAMILIE_TYPE",
+        "FAR_ID",
+        "FM_MARK",
+        "FOED_DAG",
+        "HUSTYPE",
+        "IE_TYPE",
+        "KOEN",
+        "KOM",
+        "MOR_ID",
+        "OPR_LAND",
+        "PLADS",
+        "PNR",
+        "REG",
+        "STATSB",
+    ]
+    # Use default_columns if columns_to_keep is None
+    columns = columns_to_keep if columns_to_keep is not None else default_columns
     process_register_data(
         input_files=BEF_FILES,
         output_file=BEF_OUT,
         population_file=POPULATION_FILE,
         schema=BEF_SCHEMA,
         date_columns=["FOED_DAG", "BOP_VFRA"],
-        columns_to_keep=[
-            "AEGTE_ID",
-            "ALDER",
-            "ANTBOERNF",
-            "ANTBOERNH",
-            "ANTPERSF",
-            "ANTPERSH",
-            "BOP_VFRA",
-            "CIVST",
-            "E_FAELLE_ID",
-            "FAMILIE_ID",
-            "FAMILIE_TYPE",
-            "FAR_ID",
-            "FM_MARK",
-            "FOED_DAG",
-            "HUSTYPE",
-            "IE_TYPE",
-            "KOEN",
-            "KOM",
-            "MOR_ID",
-            "OPR_LAND",
-            "PLADS",
-            "PNR",
-            "REG",
-            "STATSB",
-        ],
+        columns_to_keep=columns,
+        join_parents_only=False,
     )
 
 

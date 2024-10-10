@@ -4,10 +4,13 @@ from pathlib import Path
 BASE_DIR = Path("E:/workdata/708245/CDEF/Projekter/Family")
 DATA_DIR = BASE_DIR / "data"
 POPULATION_FILE = DATA_DIR / "population.parquet"
+COHORT_FILE = DATA_DIR / "cohort.parquet"
 ISCED_FILE = DATA_DIR / "isced.parquet"
 ICD_FILE = DATA_DIR / "icd10dict.csv"
 PARQUETS = "*.parquet"
 PARQUET_SUFFIX = ".parquet"
+BIRTH_INCLUSION_START_YEAR = 1995
+BIRTH_INCLUSION_END_YEAR = 2020
 
 # Registers
 REGISTER_DIR = Path("E:/workdata/708245/data/register")
