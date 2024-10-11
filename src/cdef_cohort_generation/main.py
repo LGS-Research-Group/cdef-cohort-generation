@@ -6,6 +6,7 @@ from cdef_cohort_generation.config import (
     AKM_OUT,
     BEF_OUT,
     COHORT_FILE,
+    EVENT_DEFINITIONS,
     IDAN_OUT,
     IND_OUT,
     LPR3_DIAGNOSER_OUT,
@@ -16,17 +17,19 @@ from cdef_cohort_generation.config import (
     POPULATION_FILE,
     UDDF_OUT,
 )
-from cdef_cohort_generation.registers.akm import process_akm
-from cdef_cohort_generation.registers.bef import process_bef
-from cdef_cohort_generation.registers.idan import process_idan
-from cdef_cohort_generation.registers.ind import process_ind
-from cdef_cohort_generation.registers.lpr3_diagnoser import process_lpr3_diagnoser
-from cdef_cohort_generation.registers.lpr3_kontakter import process_lpr3_kontakter
-from cdef_cohort_generation.registers.lpr_adm import process_lpr_adm
-from cdef_cohort_generation.registers.lpr_bes import process_lpr_bes
-from cdef_cohort_generation.registers.lpr_diag import process_lpr_diag
-from cdef_cohort_generation.registers.uddf import process_uddf
-from cdef_cohort_generation.utils import apply_scd_algorithm
+from cdef_cohort_generation.registers import (
+    process_akm,
+    process_bef,
+    process_idan,
+    process_ind,
+    process_lpr3_diagnoser,
+    process_lpr3_kontakter,
+    process_lpr_adm,
+    process_lpr_bes,
+    process_lpr_diag,
+    process_uddf,
+)
+from cdef_cohort_generation.utils import apply_scd_algorithm, identify_events
 
 
 def identify_severe_chronic_disease() -> pl.LazyFrame:
@@ -73,51 +76,59 @@ def identify_severe_chronic_disease() -> pl.LazyFrame:
     )
 
 
-def process_cohort_data(scd_data: pl.LazyFrame, output_file: Path) -> None:
+def process_static_data(scd_data: pl.LazyFrame) -> pl.LazyFrame:
     """
-    Process cohort data by joining SCD information with population and other register data.
-
-    Args:
-    scd_data (pl.DataFrame): DataFrame with SCD classification.
-    output_file (Path): Path to save the output file.
+    Process static cohort data.
     """
-
-    # Step 1: Read population data
     population = pl.scan_parquet(POPULATION_FILE)
+    static_cohort = population.join(scd_data, on="PNR", how="left")
 
-    # Step 2: Join SCD data with population
-    cohort = population.join(scd_data, on="PNR", how="left")
+    # Add any other static data processing here
 
-    # Step 3: Process and join other register data
-    process_bef()
-    process_uddf()
-    process_akm()
-    process_ind()
-    process_idan()
+    return static_cohort
 
-    other_registers = [BEF_OUT, UDDF_OUT, AKM_OUT, IND_OUT, IDAN_OUT]
-    for register in other_registers:
+
+def process_longitudinal_data() -> pl.LazyFrame:
+    """
+    Process longitudinal data from various registers.
+    """
+    # Process registers that contain longitudinal data
+    process_bef(longitudinal=True)
+    process_akm(longitudinal=True)
+    process_ind(longitudinal=True)
+    process_idan(longitudinal=True)
+    process_uddf(longitudinal=True)
+
+    # Combine longitudinal data from different registers
+    longitudinal_registers = [BEF_OUT, AKM_OUT, IND_OUT, IDAN_OUT, UDDF_OUT]
+    longitudinal_data = []
+    for register in longitudinal_registers:
         register_data = pl.scan_parquet(register)
-        cohort = cohort.join(register_data, on="PNR", how="left")
+        longitudinal_data.append(register_data)
 
-    # Step 4: Add additional information
-    cohort = cohort.with_columns(
-        [
-            pl.col("first_scd_date").dt.offset_by("-1y").alias("pre_exposure_start"),
-            pl.col("first_scd_date").alias("pre_exposure_end"),
-        ]
-    )
-
-    # Step 5: Write output to file
-    cohort.collect().write_parquet(output_file)
-    print(f"Cohort data written to {output_file}")
+    return pl.concat(longitudinal_data)
 
 
 # Main execution
-def main(output_file: Path) -> None:
+def main(output_dir: Path) -> None:
+    # Process health data and identify SCD
     scd_data = identify_severe_chronic_disease()
-    process_cohort_data(scd_data, output_file)
+
+    # Process static data
+    static_cohort = process_static_data(scd_data)
+    static_cohort.collect().write_parquet(output_dir / "static_cohort.parquet")
+    print(f"Static cohort data written to {output_dir / 'static_cohort.parquet'}")
+
+    # Process longitudinal data
+    longitudinal_data = process_longitudinal_data()
+    longitudinal_data.collect().write_parquet(output_dir / "longitudinal_data.parquet")
+    print(f"Longitudinal data written to {output_dir / 'longitudinal_data.parquet'}")
+
+    # Identify events
+    events = identify_events(longitudinal_data, EVENT_DEFINITIONS)
+    events.collect().write_parquet(output_dir / "events.parquet")
+    print(f"Events data written to {output_dir / 'events.parquet'}")
 
 
 if __name__ == "__main__":
-    main(COHORT_FILE)
+    main(COHORT_FILE.parent)

@@ -1,6 +1,7 @@
 import polars as pl
 
 from cdef_cohort_generation.config import LPR_BES_FILES, LPR_BES_OUT, POPULATION_FILE
+from cdef_cohort_generation.types import KwargsType
 from cdef_cohort_generation.utils import process_register_data
 
 LPR_BES_SCHEMA = {
@@ -11,7 +12,7 @@ LPR_BES_SCHEMA = {
 }
 
 
-def process_lpr_bes(columns_to_keep: list[str] | None = None) -> None:
+def process_lpr_bes(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
     default_columns = ["D_AMBDTO", "RECNUM"]
     columns = columns_to_keep if columns_to_keep is not None else default_columns
     process_register_data(
@@ -21,4 +22,5 @@ def process_lpr_bes(columns_to_keep: list[str] | None = None) -> None:
         schema=LPR_BES_SCHEMA,
         date_columns=["D_AMBDTO", "LEVERANCEDATO"],
         columns_to_keep=columns,
+        **kwargs,
     )

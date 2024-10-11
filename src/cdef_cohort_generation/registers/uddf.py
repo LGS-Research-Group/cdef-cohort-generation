@@ -1,6 +1,7 @@
 import polars as pl
 
 from cdef_cohort_generation.config import POPULATION_FILE, UDDF_FILES, UDDF_OUT
+from cdef_cohort_generation.types import KwargsType
 from cdef_cohort_generation.utils import process_register_data
 
 UDDF_SCHEMA = {
@@ -16,7 +17,7 @@ UDDF_SCHEMA = {
 }
 
 
-def process_uddf(columns_to_keep: list[str] | None = None) -> None:
+def process_uddf(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
     default_columns = [
         "PNR",
         "HFAUDD",
@@ -36,6 +37,7 @@ def process_uddf(columns_to_keep: list[str] | None = None) -> None:
         columns_to_keep=columns,
         join_parents_only=True,
         register_name="UDDF",
+        **kwargs,
     )
 
 

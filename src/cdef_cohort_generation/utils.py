@@ -8,6 +8,7 @@ import pyreadr  # type: ignore
 
 from cdef_cohort_generation.config import ICD_FILE, ISCED_FILE, RDAT_FILE
 from cdef_cohort_generation.logging_config import log
+from cdef_cohort_generation.types import KwargsType
 
 
 def parse_dates(col_name: str) -> pl.Expr:
@@ -119,6 +120,7 @@ def process_register_data(
     join_parents_only: bool = False,
     register_name: str = "",
     longitudinal: bool = False,
+    **kwargs: KwargsType,
 ) -> None:
     """
     Process register data, join with population data, and save the result.
@@ -133,7 +135,8 @@ def process_register_data(
     join_on (str | List[str]): Column(s) to join on. Default is "PNR".
     join_parents_only (bool): If True, only join on FAR_ID and MOR_ID. Default is False.
     register_name (str): Name of the register being processed. Default is "".
-    longitudinal (bool): If True, treat data as longitudinal and extract year (and month if present) from filename. Default is False.
+    longitudinal (bool): If True, treat data as longitudinal
+    and extract year (and month if present) from filename. Default is False.
 
     Returns:
     None

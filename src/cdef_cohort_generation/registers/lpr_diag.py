@@ -1,6 +1,7 @@
 import polars as pl
 
 from cdef_cohort_generation.config import LPR_DIAG_FILES, LPR_DIAG_OUT, POPULATION_FILE
+from cdef_cohort_generation.types import KwargsType
 from cdef_cohort_generation.utils import process_register_data
 
 LPR_DIAG_SCHEMA = {
@@ -13,7 +14,7 @@ LPR_DIAG_SCHEMA = {
 }
 
 
-def process_lpr_diag(columns_to_keep: list[str] | None = None) -> None:
+def process_lpr_diag(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
     default_columns = ["C_DIAG", "C_DIAGTYPE", "RECNUM"]
     columns = columns_to_keep if columns_to_keep is not None else default_columns
     process_register_data(
@@ -25,4 +26,5 @@ def process_lpr_diag(columns_to_keep: list[str] | None = None) -> None:
             "LEVERANCEDATO",
         ],
         columns_to_keep=columns,
+        **kwargs,
     )

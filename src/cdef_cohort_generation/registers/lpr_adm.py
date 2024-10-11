@@ -1,6 +1,7 @@
 import polars as pl
 
 from cdef_cohort_generation.config import LPR_ADM_FILES, LPR_ADM_OUT, POPULATION_FILE
+from cdef_cohort_generation.types import KwargsType
 from cdef_cohort_generation.utils import process_register_data
 
 LPR_ADM_SCHEMA = {
@@ -34,7 +35,7 @@ LPR_ADM_SCHEMA = {
 }
 
 
-def process_lpr_adm(columns_to_keep: list[str] | None = None) -> None:
+def process_lpr_adm(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
     default_columns = [
         "PNR",
         "C_ADIAG",
@@ -58,6 +59,7 @@ def process_lpr_adm(columns_to_keep: list[str] | None = None) -> None:
             "D_UDDTO",
         ],
         columns_to_keep=columns,
+        **kwargs,
     )
 
 

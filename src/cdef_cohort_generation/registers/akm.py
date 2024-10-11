@@ -1,6 +1,7 @@
 import polars as pl
 
 from cdef_cohort_generation.config import AKM_FILES, AKM_OUT, POPULATION_FILE
+from cdef_cohort_generation.types import KwargsType
 from cdef_cohort_generation.utils import process_register_data
 
 AKM_SCHEMA = {
@@ -15,10 +16,10 @@ AKM_SCHEMA = {
 }
 
 
-def process_akm(columns_to_keep: list[str] | None = None) -> None:
+def process_akm(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
     default_columns = ["PNR", "SOCIO13", "SENR", "year"]
-    # Use default_columns if columns_to_keep is None
     columns = columns_to_keep if columns_to_keep is not None else default_columns
+
     process_register_data(
         input_files=AKM_FILES,
         output_file=AKM_OUT,
@@ -26,7 +27,7 @@ def process_akm(columns_to_keep: list[str] | None = None) -> None:
         schema=AKM_SCHEMA,
         columns_to_keep=columns,
         join_parents_only=True,
-        longitudinal=True,
+        **kwargs,
     )
 
 

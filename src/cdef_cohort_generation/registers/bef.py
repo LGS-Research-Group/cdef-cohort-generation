@@ -1,6 +1,7 @@
 import polars as pl
 
 from cdef_cohort_generation.config import BEF_FILES, BEF_OUT, POPULATION_FILE
+from cdef_cohort_generation.types import KwargsType
 from cdef_cohort_generation.utils import process_register_data
 
 BEF_SCHEMA = {
@@ -34,7 +35,7 @@ BEF_SCHEMA = {
 }
 
 
-def process_bef(columns_to_keep: list[str] | None = None) -> None:
+def process_bef(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
     default_columns = [
         "AEGTE_ID",
         "ALDER",
@@ -74,6 +75,7 @@ def process_bef(columns_to_keep: list[str] | None = None) -> None:
         columns_to_keep=columns,
         join_parents_only=False,
         longitudinal=True,
+        **kwargs,
     )
 
 

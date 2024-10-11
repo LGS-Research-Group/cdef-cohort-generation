@@ -1,2 +1,4 @@
-def hello() -> str:
-    return "Hello from cdef-cohort-generation!"
+from . import registers
+
+__all__ = ["registers"]
+#     return "Hello from cdef-cohort-generation!"

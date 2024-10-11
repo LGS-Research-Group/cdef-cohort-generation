@@ -1,6 +1,7 @@
 import polars as pl
 
 from cdef_cohort_generation.config import LPR3_KONTAKTER_FILES, LPR3_KONTAKTER_OUT, POPULATION_FILE
+from cdef_cohort_generation.types import KwargsType
 from cdef_cohort_generation.utils import process_register_data
 
 LPR3_KONTAKTER_SCHEMA = {
@@ -27,7 +28,7 @@ LPR3_KONTAKTER_SCHEMA = {
 }
 
 
-def process_lpr3_kontakter(columns_to_keep: list[str] | None = None) -> None:
+def process_lpr3_kontakter(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
     default_columns = ["DW_EK_KONTAKT", "CPR", "dato_start", "dato_slut", "aktionsdiagnose"]
 
     columns = columns_to_keep if columns_to_keep is not None else default_columns
@@ -38,4 +39,5 @@ def process_lpr3_kontakter(columns_to_keep: list[str] | None = None) -> None:
         schema=LPR3_KONTAKTER_SCHEMA,
         date_columns=["dato_slut", "dato_start", "dato_behandling_start", "dato_indberetning"],
         columns_to_keep=columns,
+        **kwargs,
     )

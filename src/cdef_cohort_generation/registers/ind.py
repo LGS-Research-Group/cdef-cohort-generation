@@ -1,6 +1,7 @@
 import polars as pl
 
 from cdef_cohort_generation.config import IND_FILES, IND_OUT, POPULATION_FILE
+from cdef_cohort_generation.types import KwargsType
 from cdef_cohort_generation.utils import process_register_data
 
 IND_SCHEMA = {
@@ -15,7 +16,7 @@ IND_SCHEMA = {
 }
 
 
-def process_ind(columns_to_keep: list[str] | None = None) -> None:
+def process_ind(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
     default_columns = ["PNR", "BESKST13", "LOENMV_13", "PERINDKIALT_13", "PRE_SOCIO", "year"]
     # Use default_columns if columns_to_keep is None
     columns = columns_to_keep if columns_to_keep is not None else default_columns
@@ -27,6 +28,7 @@ def process_ind(columns_to_keep: list[str] | None = None) -> None:
         columns_to_keep=columns,
         join_parents_only=True,
         longitudinal=True,
+        **kwargs,
     )
 
 

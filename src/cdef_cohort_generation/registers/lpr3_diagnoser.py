@@ -1,6 +1,7 @@
 import polars as pl
 
 from cdef_cohort_generation.config import LPR3_DIAGNOSER_FILES, LPR3_DIAGNOSER_OUT, POPULATION_FILE
+from cdef_cohort_generation.types import KwargsType
 from cdef_cohort_generation.utils import process_register_data
 
 LPR3_DIAGNOSER_SCHEMA = {
@@ -14,7 +15,7 @@ LPR3_DIAGNOSER_SCHEMA = {
 }
 
 
-def process_lpr3_diagnoser(columns_to_keep: list[str] | None = None) -> None:
+def process_lpr3_diagnoser(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
     default_columns = ["DW_EK_KONTAKT", "diagnosekode", "diagnosetype"]
     columns = columns_to_keep if columns_to_keep is not None else default_columns
     process_register_data(
@@ -23,6 +24,7 @@ def process_lpr3_diagnoser(columns_to_keep: list[str] | None = None) -> None:
         population_file=POPULATION_FILE,
         schema=LPR3_DIAGNOSER_SCHEMA,
         columns_to_keep=columns,
+        **kwargs,
     )
 
 

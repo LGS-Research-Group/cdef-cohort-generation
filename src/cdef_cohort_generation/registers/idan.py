@@ -1,6 +1,7 @@
 import polars as pl
 
 from cdef_cohort_generation.config import IDAN_FILES, IDAN_OUT, POPULATION_FILE
+from cdef_cohort_generation.types import KwargsType
 from cdef_cohort_generation.utils import process_register_data
 
 IDAN_SCHEMA = {
@@ -18,7 +19,7 @@ IDAN_SCHEMA = {
 }
 
 
-def process_idan(columns_to_keep: list[str] | None = None) -> None:
+def process_idan(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
     default_columns = [
         "PNR",
         "ARBGNR",
@@ -41,6 +42,7 @@ def process_idan(columns_to_keep: list[str] | None = None) -> None:
         columns_to_keep=columns,
         join_parents_only=True,
         longitudinal=True,
+        **kwargs,
     )
 
 
