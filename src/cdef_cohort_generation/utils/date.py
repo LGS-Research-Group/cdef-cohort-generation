@@ -24,14 +24,14 @@ def parse_dates(col_name: str) -> pl.Expr:
 
 
 def extract_date_from_filename(filename: str) -> dict[str, int]:
-    """
-    Extract year and month (if present) from filename.
+    """Extract year and month (if present) from filename.
 
     Args:
     filename (str): Name of the file.
 
     Returns:
     dict: A dictionary with 'year' and optionally 'month' keys.
+
     """
     # Try to match YYYYMM format first
     match = re.search(r"(\d{4})(\d{2})", filename)

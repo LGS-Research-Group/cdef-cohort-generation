@@ -13,13 +13,13 @@ def main() -> None:
     # Read all bef parquet files
     bef_files = BEF_FILES
     bef = pl.scan_parquet(bef_files, allow_missing_columns=True).with_columns(
-        [parse_dates("FOED_DAG")]
+        [parse_dates("FOED_DAG")],
     )
 
     # Process children
     children = bef.filter(
         (pl.col("FOED_DAG").dt.year() >= BIRTH_INCLUSION_START_YEAR)
-        & (pl.col("FOED_DAG").dt.year() <= BIRTH_INCLUSION_END_YEAR)
+        & (pl.col("FOED_DAG").dt.year() <= BIRTH_INCLUSION_END_YEAR),
     ).select(["PNR", "FOED_DAG", "FAR_ID", "MOR_ID", "FAMILIE_ID"])
 
     # Get unique children
@@ -31,7 +31,7 @@ def main() -> None:
                 pl.col("FAR_ID").first(),
                 pl.col("MOR_ID").first(),
                 pl.col("FAMILIE_ID").first(),
-            ]
+            ],
         )
         .collect()
     )
@@ -43,7 +43,7 @@ def main() -> None:
         .agg(
             [
                 pl.col("FOED_DAG").first(),
-            ]
+            ],
         )
         .collect()
     )
@@ -71,7 +71,7 @@ def main() -> None:
             "MOR_ID",
             "MOR_FDAG",
             "FAMILIE_ID",
-        ]
+        ],
     )
 
     # Write result into parquet file

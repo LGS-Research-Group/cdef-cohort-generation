@@ -2,8 +2,7 @@ import polars as pl
 
 
 def identify_events(df: pl.LazyFrame, event_definitions: dict[str, pl.Expr]) -> pl.LazyFrame:
-    """
-    Identify events based on provided definitions.
+    """Identify events based on provided definitions.
 
     Args:
     df (pl.LazyFrame): Input dataframe
@@ -11,6 +10,7 @@ def identify_events(df: pl.LazyFrame, event_definitions: dict[str, pl.Expr]) -> 
 
     Returns:
     pl.LazyFrame: Dataframe with identified events
+
     """
     events = []
     for event_name, event_expr in event_definitions.items():

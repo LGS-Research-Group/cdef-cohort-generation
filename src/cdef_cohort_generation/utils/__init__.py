@@ -1,4 +1,3 @@
-from cdef_cohort_generation.utils import logging_config
 from cdef_cohort_generation.utils.config import (
     AKM_FILES,
     AKM_OUT,
@@ -54,7 +53,6 @@ __all__ = [
     "read_icd_descriptions",
     "apply_scd_algorithm",
     "add_icd_descriptions",
-    "logging_config",
     "identify_events",
     "BASE_DIR",
     "DATA_DIR",
@@ -88,5 +86,5 @@ __all__ = [
     "LPR_BES_OUT",
     "LPR3_DIAGNOSER_OUT",
     "LPR3_KONTAKTER_OUT",
-    "EVENT_DEFINITIONS"
+    "EVENT_DEFINITIONS",
 ]

@@ -20,7 +20,7 @@ class TestEducationProcessing(unittest.TestCase):
                 "EDU_LVL": ["3", "4", "5", "6"],
                 "EDU_TYPE": ["A", "B", "C", "D"],
                 "EDU_DATE": ["2000-01-01", "2005-01-01", "2010-01-01", "2015-01-01"],
-            }
+            },
         )
         processed_data = process_education_data(edu_data)
         self.assertEqual(len(processed_data), 2)  # Two unique PNRs

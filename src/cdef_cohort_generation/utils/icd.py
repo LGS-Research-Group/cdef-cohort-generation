@@ -117,19 +117,18 @@ def apply_scd_algorithm(df: pl.LazyFrame) -> pl.LazyFrame:
                 (pl.col("C_DIAG").str.to_uppercase().str.slice(1, 5) >= "P941")
                 & (pl.col("C_DIAG").str.to_uppercase().str.slice(1, 5) <= "P949")
             )
-        )
+        ),
     )
 
     # Add first SCD diagnosis date
-    df_with_scd = df_with_scd.with_columns(
+    return df_with_scd.with_columns(
         first_scd_date=pl.when(pl.col("is_scd"))
         .then(pl.col("D_INDDTO"))
         .otherwise(None)
         .first()
-        .over("PNR")
+        .over("PNR"),
     )
 
-    return df_with_scd
 
 
 def add_icd_descriptions(df: pl.LazyFrame, icd_descriptions: pl.LazyFrame) -> pl.LazyFrame:
@@ -139,7 +138,7 @@ def add_icd_descriptions(df: pl.LazyFrame, icd_descriptions: pl.LazyFrame) -> pl
             [
                 pl.col("C_ADIAG").str.slice(1).alias("icd_code_adiag"),
                 pl.col("C_DIAG").str.slice(1).alias("icd_code_diag"),
-            ]
+            ],
         )
         .join(
             icd_descriptions,

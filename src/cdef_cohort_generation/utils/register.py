@@ -25,8 +25,7 @@ def process_register_data(
     longitudinal: bool = False,
     **kwargs: KwargsType,
 ) -> None:
-    """
-    Process register data, join with population data, and save the result.
+    """Process register data, join with population data, and save the result.
 
     Args:
     input_files (Path): Path to input parquet files.
@@ -43,6 +42,7 @@ def process_register_data(
 
     Returns:
     None
+
     """
     if longitudinal:
         data_frames = []

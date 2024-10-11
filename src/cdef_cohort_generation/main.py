@@ -36,13 +36,12 @@ from cdef_cohort_generation.utils import (
 
 
 def identify_severe_chronic_disease() -> pl.LazyFrame:
-    """
-    Process health data and identify children with severe chronic diseases.
+    """Process health data and identify children with severe chronic diseases.
 
     Returns:
     pl.DataFrame: DataFrame with PNR, is_scd flag, and first_scd_date.
-    """
 
+    """
     # Step 1: Process health register data
     process_lpr_adm()
     process_lpr_diag()
@@ -75,26 +74,21 @@ def identify_severe_chronic_disease() -> pl.LazyFrame:
         [
             pl.col("is_scd").max().alias("is_scd"),
             pl.col("first_scd_date").min().alias("first_scd_date"),
-        ]
+        ],
     )
 
 
 def process_static_data(scd_data: pl.LazyFrame) -> pl.LazyFrame:
-    """
-    Process static cohort data.
-    """
+    """Process static cohort data."""
     population = pl.scan_parquet(POPULATION_FILE)
-    static_cohort = population.join(scd_data, on="PNR", how="left")
+    return population.join(scd_data, on="PNR", how="left")
 
     # Add any other static data processing here
 
-    return static_cohort
 
 
 def process_longitudinal_data() -> pl.LazyFrame:
-    """
-    Process longitudinal data from various registers.
-    """
+    """Process longitudinal data from various registers."""
     # Process registers that contain longitudinal data
     process_bef(longitudinal=True)
     process_akm(longitudinal=True)
@@ -143,7 +137,6 @@ def main(output_dir: Path) -> None:
     # Identify events
     events = identify_events(longitudinal_data, EVENT_DEFINITIONS)
     events.collect().write_parquet(output_dir / "events.parquet")
-    print(f"Events data written to {output_dir / 'events.parquet'}")
 
 
 if __name__ == "__main__":
