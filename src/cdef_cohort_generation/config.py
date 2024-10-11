@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import polars as pl
+
 # Constants
 BASE_DIR = Path("E:/workdata/708245/CDEF/Projekter/Family")
 DATA_DIR = BASE_DIR / "data"
@@ -43,3 +45,11 @@ LPR_DIAG_OUT = DATA_DIR / "lpr_diag/lpr_diag" / PARQUET_SUFFIX
 LPR_BES_OUT = DATA_DIR / "lpr_bes/lpr_bes" / PARQUET_SUFFIX
 LPR3_DIAGNOSER_OUT = DATA_DIR / "diagnoser/diagnoser" / PARQUET_SUFFIX
 LPR3_KONTAKTER_OUT = DATA_DIR / "kontakter/kontakter" / PARQUET_SUFFIX
+
+
+EVENT_DEFINITIONS = {
+    "education_change": (pl.col("EDU_LVL").diff() != 0),
+    "income_bracket_change": (pl.col("income_bracket").diff() != 0),
+    "municipality_change": (pl.col("KOM").diff() != 0),
+    # Add more event definitions as needed
+}

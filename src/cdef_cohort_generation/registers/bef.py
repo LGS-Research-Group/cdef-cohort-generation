@@ -60,6 +60,8 @@ def process_bef(columns_to_keep: list[str] | None = None) -> None:
         "PNR",
         "REG",
         "STATSB",
+        "year",
+        "month",
     ]
     # Use default_columns if columns_to_keep is None
     columns = columns_to_keep if columns_to_keep is not None else default_columns
@@ -71,6 +73,7 @@ def process_bef(columns_to_keep: list[str] | None = None) -> None:
         date_columns=["FOED_DAG", "BOP_VFRA"],
         columns_to_keep=columns,
         join_parents_only=False,
+        longitudinal=True,
     )
 
 

@@ -16,11 +16,7 @@ AKM_SCHEMA = {
 
 
 def process_akm(columns_to_keep: list[str] | None = None) -> None:
-    default_columns = [
-        "PNR",
-        "SOCIO13",
-        "SENR",
-    ]
+    default_columns = ["PNR", "SOCIO13", "SENR", "year"]
     # Use default_columns if columns_to_keep is None
     columns = columns_to_keep if columns_to_keep is not None else default_columns
     process_register_data(
@@ -30,6 +26,7 @@ def process_akm(columns_to_keep: list[str] | None = None) -> None:
         schema=AKM_SCHEMA,
         columns_to_keep=columns,
         join_parents_only=True,
+        longitudinal=True,
     )
 
 

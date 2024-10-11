@@ -1,3 +1,4 @@
+import re
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -60,6 +61,53 @@ def read_isced_data() -> pl.LazyFrame:
         raise
 
 
+def extract_date_from_filename(filename: str) -> dict[str, int]:
+    """
+    Extract year and month (if present) from filename.
+
+    Args:
+    filename (str): Name of the file.
+
+    Returns:
+    dict: A dictionary with 'year' and optionally 'month' keys.
+    """
+    # Try to match YYYYMM format first
+    match = re.search(r"(\d{4})(\d{2})", filename)
+    if match:
+        return {"year": int(match.group(1)), "month": int(match.group(2))}
+
+    # If not, try to match just YYYY
+    match = re.search(r"(\d{4})", filename)
+    if match:
+        return {"year": int(match.group(1))}
+
+    # If no match found, return an empty dict
+    return {}
+
+
+def identify_events(df: pl.LazyFrame, event_definitions: dict[str, pl.Expr]) -> pl.LazyFrame:
+    """
+    Identify events based on provided definitions.
+
+    Args:
+    df (pl.LazyFrame): Input dataframe
+    event_definitions (dict): Dictionary of event names and their polars expressions
+
+    Returns:
+    pl.LazyFrame: Dataframe with identified events
+    """
+    events = []
+    for event_name, event_expr in event_definitions.items():
+        event = df.filter(event_expr).select(
+            pl.lit(event_name).alias("event_type"),
+            pl.col("PNR"),
+            pl.col("year").alias("event_year"),
+        )
+        events.append(event)
+
+    return pl.concat(events)
+
+
 def process_register_data(
     input_files: Path,
     output_file: Path,
@@ -70,6 +118,7 @@ def process_register_data(
     join_on: str | list[str] = "PNR",
     join_parents_only: bool = False,
     register_name: str = "",
+    longitudinal: bool = False,
 ) -> None:
     """
     Process register data, join with population data, and save the result.
@@ -84,12 +133,24 @@ def process_register_data(
     join_on (str | List[str]): Column(s) to join on. Default is "PNR".
     join_parents_only (bool): If True, only join on FAR_ID and MOR_ID. Default is False.
     register_name (str): Name of the register being processed. Default is "".
+    longitudinal (bool): If True, treat data as longitudinal and extract year (and month if present) from filename. Default is False.
 
     Returns:
     None
     """
-    # Read all input parquet files
-    data = pl.scan_parquet(input_files, allow_missing_columns=True)
+    if longitudinal:
+        data_frames = []
+        for file in input_files.glob("*.parquet"):
+            df = pl.scan_parquet(file)
+            date_info = extract_date_from_filename(file.stem)
+            if "year" in date_info:
+                df = df.with_columns(pl.lit(date_info["year"]).alias("year"))
+            if "month" in date_info:
+                df = df.with_columns(pl.lit(date_info["month"]).alias("month"))
+            data_frames.append(df)
+        data = pl.concat(data_frames)
+    else:
+        data = pl.scan_parquet(input_files, allow_missing_columns=True)
 
     # Parse date columns if specified
     if date_columns:
