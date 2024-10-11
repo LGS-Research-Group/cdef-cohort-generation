@@ -1,8 +1,12 @@
 import polars as pl
 
-from cdef_cohort_generation.config import IDAN_FILES, IDAN_OUT, POPULATION_FILE
-from cdef_cohort_generation.types import KwargsType
-from cdef_cohort_generation.utils import process_register_data
+from cdef_cohort_generation.utils import (
+    IDAN_FILES,
+    IDAN_OUT,
+    POPULATION_FILE,
+    KwargsType,
+    process_register_data,
+)
 
 IDAN_SCHEMA = {
     "ARBGNR": pl.Utf8,  # Arbejdsgivernummer

@@ -2,7 +2,21 @@ from pathlib import Path
 
 import polars as pl
 
-from cdef_cohort_generation.config import (
+from cdef_cohort_generation.logging_config import log
+from cdef_cohort_generation.population import main as generate_population
+from cdef_cohort_generation.registers import (
+    process_akm,
+    process_bef,
+    process_idan,
+    process_ind,
+    process_lpr3_diagnoser,
+    process_lpr3_kontakter,
+    process_lpr_adm,
+    process_lpr_bes,
+    process_lpr_diag,
+    process_uddf,
+)
+from cdef_cohort_generation.utils import (
     AKM_OUT,
     BEF_OUT,
     COHORT_FILE,
@@ -16,20 +30,9 @@ from cdef_cohort_generation.config import (
     LPR_DIAG_OUT,
     POPULATION_FILE,
     UDDF_OUT,
+    apply_scd_algorithm,
+    identify_events,
 )
-from cdef_cohort_generation.registers import (
-    process_akm,
-    process_bef,
-    process_idan,
-    process_ind,
-    process_lpr3_diagnoser,
-    process_lpr3_kontakter,
-    process_lpr_adm,
-    process_lpr_bes,
-    process_lpr_diag,
-    process_uddf,
-)
-from cdef_cohort_generation.utils import apply_scd_algorithm, identify_events
 
 
 def identify_severe_chronic_disease() -> pl.LazyFrame:
@@ -111,18 +114,31 @@ def process_longitudinal_data() -> pl.LazyFrame:
 
 # Main execution
 def main(output_dir: Path) -> None:
+    log("Starting cohort generation process")
+
+    # Generate population
+    log("Generating population data")
+    generate_population()
+    log("Population data generation completed")
+
     # Process health data and identify SCD
+    log("Identifying severe chronic diseases")
     scd_data = identify_severe_chronic_disease()
+    log("Severe chronic disease identification completed")
 
     # Process static data
+    log("Processing static data")
     static_cohort = process_static_data(scd_data)
+    log("Static data processing completed")
     static_cohort.collect().write_parquet(output_dir / "static_cohort.parquet")
-    print(f"Static cohort data written to {output_dir / 'static_cohort.parquet'}")
+    log(f"Static cohort data written to {output_dir / 'static_cohort.parquet'}")
 
     # Process longitudinal data
+    log("Processing longitudinal data")
     longitudinal_data = process_longitudinal_data()
+    log("Longitudinal data processing completed")
     longitudinal_data.collect().write_parquet(output_dir / "longitudinal_data.parquet")
-    print(f"Longitudinal data written to {output_dir / 'longitudinal_data.parquet'}")
+    log(f"Longitudinal data written to {output_dir / 'longitudinal_data.parquet'}")
 
     # Identify events
     events = identify_events(longitudinal_data, EVENT_DEFINITIONS)

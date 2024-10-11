@@ -1,12 +1,12 @@
 import polars as pl
 
-from cdef_cohort_generation.config import (
+from cdef_cohort_generation.utils import (
     BEF_FILES,
     BIRTH_INCLUSION_END_YEAR,
     BIRTH_INCLUSION_START_YEAR,
     POPULATION_FILE,
+    parse_dates,
 )
-from cdef_cohort_generation.utils import parse_dates
 
 
 def main() -> None:

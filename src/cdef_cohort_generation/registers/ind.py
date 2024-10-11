@@ -1,8 +1,12 @@
 import polars as pl
 
-from cdef_cohort_generation.config import IND_FILES, IND_OUT, POPULATION_FILE
-from cdef_cohort_generation.types import KwargsType
-from cdef_cohort_generation.utils import process_register_data
+from cdef_cohort_generation.utils import (
+    IND_FILES,
+    IND_OUT,
+    POPULATION_FILE,
+    KwargsType,
+    process_register_data,
+)
 
 IND_SCHEMA = {
     "BESKST13": pl.Int8,  # Kode for personens væsentligste indkomstkilde

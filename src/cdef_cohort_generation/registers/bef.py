@@ -1,8 +1,12 @@
 import polars as pl
 
-from cdef_cohort_generation.config import BEF_FILES, BEF_OUT, POPULATION_FILE
-from cdef_cohort_generation.types import KwargsType
-from cdef_cohort_generation.utils import process_register_data
+from cdef_cohort_generation.utils import (
+    BEF_FILES,
+    BEF_OUT,
+    POPULATION_FILE,
+    KwargsType,
+    process_register_data,
+)
 
 BEF_SCHEMA = {
     "AEGTE_ID": pl.Utf8,
