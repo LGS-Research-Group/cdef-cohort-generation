@@ -1,8 +1,8 @@
 import polars as pl
 import pyreadr  # type: ignore
 
-from cdef_cohort_generation.config import ISCED_FILE, RDAT_FILE
 from cdef_cohort_generation.logging_config import log
+from cdef_cohort_generation.utils.config import ISCED_FILE, RDAT_FILE
 
 
 def read_isced_data() -> pl.LazyFrame:

@@ -3,7 +3,6 @@ import polars as pl
 from cdef_cohort_generation.utils import (
     LPR_ADM_FILES,
     LPR_ADM_OUT,
-    POPULATION_FILE,
     KwargsType,
     process_register_data,
 )
@@ -55,7 +54,7 @@ def process_lpr_adm(columns_to_keep: list[str] | None = None, **kwargs: KwargsTy
     process_register_data(
         input_files=LPR_ADM_FILES,
         output_file=LPR_ADM_OUT,
-        population_file=POPULATION_FILE,
+        population_file=None,
         schema=LPR_ADM_SCHEMA,
         date_columns=[
             "D_HENDTO",

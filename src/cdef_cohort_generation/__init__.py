@@ -1,3 +1,3 @@
-from . import registers, utils
+from . import main, registers, utils
 
-__all__ = ["registers", "utils"]
+__all__ = ["main", "registers", "utils"]

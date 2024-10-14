@@ -1,4 +1,5 @@
-from cdef_cohort_generation.utils.config import (
+from . import config
+from .config import (
     AKM_FILES,
     AKM_OUT,
     BASE_DIR,
@@ -25,7 +26,6 @@ from cdef_cohort_generation.utils.config import (
     LPR_BES_OUT,
     LPR_DIAG_FILES,
     LPR_DIAG_OUT,
-    PARQUET_SUFFIX,
     PARQUETS,
     POPULATION_FILE,
     RDAT_FILE,
@@ -33,18 +33,21 @@ from cdef_cohort_generation.utils.config import (
     UDDF_FILES,
     UDDF_OUT,
 )
-from cdef_cohort_generation.utils.date import extract_date_from_filename, parse_dates
-from cdef_cohort_generation.utils.event import identify_events
-from cdef_cohort_generation.utils.icd import (
+from .date import extract_date_from_filename, parse_dates
+from .event import identify_events
+from .icd import (
     add_icd_descriptions,
     apply_scd_algorithm,
+    harmonize_health_data,
     read_icd_descriptions,
 )
-from cdef_cohort_generation.utils.isced import read_isced_data
-from cdef_cohort_generation.utils.register import process_register_data
-from cdef_cohort_generation.utils.types import KwargsType
+from .isced import read_isced_data
+from .register import process_register_data
+from .types import KwargsType
 
 __all__ = [
+    "harmonize_health_data",
+    "config",
     "extract_date_from_filename",
     "parse_dates",
     "read_isced_data",
@@ -62,7 +65,6 @@ __all__ = [
     "ICD_FILE",
     "RDAT_FILE",
     "PARQUETS",
-    "PARQUET_SUFFIX",
     "BIRTH_INCLUSION_START_YEAR",
     "BIRTH_INCLUSION_END_YEAR",
     "REGISTER_DIR",
@@ -87,4 +89,5 @@ __all__ = [
     "LPR3_DIAGNOSER_OUT",
     "LPR3_KONTAKTER_OUT",
     "EVENT_DEFINITIONS",
+    "config",
 ]

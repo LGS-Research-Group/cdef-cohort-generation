@@ -70,17 +70,20 @@ def process_bef(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) 
     ]
     # Use default_columns if columns_to_keep is None
     columns = columns_to_keep if columns_to_keep is not None else default_columns
-    process_register_data(
-        input_files=BEF_FILES,
-        output_file=BEF_OUT,
-        population_file=POPULATION_FILE,
-        schema=BEF_SCHEMA,
-        date_columns=["FOED_DAG", "BOP_VFRA"],
-        columns_to_keep=columns,
-        join_parents_only=False,
-        longitudinal=True,
-        **kwargs,
-    )
+    # Merge the kwargs with the default arguments
+    process_args = {
+        "input_files": BEF_FILES,
+        "output_file": BEF_OUT,
+        "population_file": POPULATION_FILE,
+        "schema": BEF_SCHEMA,
+        "date_columns": ["FOED_DAG", "BOP_VFRA"],
+        "columns_to_keep": columns,
+        "join_parents_only": False,
+        "longitudinal": True,
+    }
+    process_args.update(kwargs)
+
+    process_register_data(**process_args)
 
 
 if __name__ == "__main__":

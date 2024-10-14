@@ -4,18 +4,16 @@ from pathlib import Path
 import polars as pl
 import polars.selectors as cs
 
-from cdef_cohort_generation.utils import (
-    KwargsType,
-    extract_date_from_filename,
-    parse_dates,
-    read_isced_data,
-)
+from cdef_cohort_generation.logging_config import logger
+from cdef_cohort_generation.utils.date import extract_date_from_filename, parse_dates
+from cdef_cohort_generation.utils.isced import read_isced_data
+from cdef_cohort_generation.utils.types import KwargsType
 
 
 def process_register_data(
     input_files: Path,
     output_file: Path,
-    population_file: Path,
+    population_file: Path | None,
     schema: Mapping[str, pl.DataType | type[pl.DataType]],
     date_columns: list[str] | None = None,
     columns_to_keep: list[str] | None = None,
@@ -44,9 +42,13 @@ def process_register_data(
     None
 
     """
+    logger.info(f"Processing register: {register_name}")
+    logger.info(f"Input files path: {input_files}")
+
     if longitudinal:
         data_frames = []
         for file in input_files.glob("*.parquet"):
+            logger.info(f"Processing {file}")
             df = pl.scan_parquet(file)
             date_info = extract_date_from_filename(file.stem)
             if "year" in date_info:
@@ -72,30 +74,38 @@ def process_register_data(
         isced_data = read_isced_data()
         data = data.join(isced_data, left_on="HFAUDD", right_on="HFAUDD", how="left")
 
-    # Read in the population file
-    population = pl.scan_parquet(population_file)
-
-    # Prepare result dataframe
-    result = population
-
-    # If joining on parents, we need to join twice more for parent-specific data
-    if join_parents_only:
-        result = result.join(
-            data.select(cs.starts_with("FAR_")),
-            left_on="FAR_ID",
-            right_on=f"FAR_{join_on}",
-            how="left",
-        )
-        result = result.join(
-            data.select(cs.starts_with("MOR_")),
-            left_on="MOR_ID",
-            right_on=f"MOR_{join_on}",
-            how="left",
-        )
+    # If population_file is None, skip joining and use the processed data as the result
+    if population_file is None:
+        result = data
     else:
-        # Join on specified column(s)
-        join_columns = [join_on] if isinstance(join_on, str) else join_on
-        result = result.join(data, on=join_columns, how="left")
+        # Read in the population file
+        population = pl.scan_parquet(population_file)
+
+        # Prepare result dataframe
+        result = population
+
+        # If joining on parents, we need to join twice more for parent-specific data
+        if join_parents_only:
+            result = result.join(
+                data.select(cs.starts_with("FAR_")),
+                left_on="FAR_ID",
+                right_on=f"FAR_{join_on}",
+                how="left",
+            )
+            result = result.join(
+                data.select(cs.starts_with("MOR_")),
+                left_on="MOR_ID",
+                right_on=f"MOR_{join_on}",
+                how="left",
+            )
+        else:
+            # Join on specified column(s)
+            join_columns = [join_on] if isinstance(join_on, str) else join_on
+            result = result.join(data, on=join_columns, how="left")
+
+    # Ensure the output directory exists
+    output_dir = Path(output_file).parent
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     # Collect and save the result
     result.collect().write_parquet(output_file)

@@ -3,7 +3,6 @@ import polars as pl
 from cdef_cohort_generation.utils import (
     LPR_BES_FILES,
     LPR_BES_OUT,
-    POPULATION_FILE,
     KwargsType,
     process_register_data,
 )
@@ -22,7 +21,7 @@ def process_lpr_bes(columns_to_keep: list[str] | None = None, **kwargs: KwargsTy
     process_register_data(
         input_files=LPR_BES_FILES,
         output_file=LPR_BES_OUT,
-        population_file=POPULATION_FILE,
+        population_file=None,
         schema=LPR_BES_SCHEMA,
         date_columns=["D_AMBDTO", "LEVERANCEDATO"],
         columns_to_keep=columns,

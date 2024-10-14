@@ -3,7 +3,6 @@ import polars as pl
 from cdef_cohort_generation.utils import (
     LPR3_DIAGNOSER_FILES,
     LPR3_DIAGNOSER_OUT,
-    POPULATION_FILE,
     KwargsType,
     process_register_data,
 )
@@ -25,7 +24,7 @@ def process_lpr3_diagnoser(columns_to_keep: list[str] | None = None, **kwargs: K
     process_register_data(
         input_files=LPR3_DIAGNOSER_FILES,
         output_file=LPR3_DIAGNOSER_OUT,
-        population_file=POPULATION_FILE,
+        population_file=None,
         schema=LPR3_DIAGNOSER_SCHEMA,
         columns_to_keep=columns,
         **kwargs,

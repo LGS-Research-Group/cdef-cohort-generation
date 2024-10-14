@@ -1,18 +1,17 @@
 [project]
-name = "cdef-cohort-generation"
+name = "cdef_cohort_generation"
 version = "0.1.0"
 description = "Add your description here"
 authors = [
     { name = "Tobias Kragholm", email = "50784887+tkragholm@users.noreply.github.com" },
 ]
-dependencies = [
-    "polars[all]>=1.9.0",
-    "rich>=13.9.2",
-    "pyreadr>=0.5.2",
-]
+dependencies = ["polars[all]>=1.9.0", "rich>=13.9.2", "pyreadr>=0.5.2"]
 readme = "README.md"
 requires-python = ">= 3.12"
 license = "MIT"
+
+[project.scripts]
+cdef-cohort-generation = "cdef_cohort_generation.main:main"
 
 [build-system]
 requires = ["hatchling"]

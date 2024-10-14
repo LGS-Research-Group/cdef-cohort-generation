@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import polars as pl
 
 from cdef_cohort_generation.utils import (
@@ -12,8 +14,20 @@ from cdef_cohort_generation.utils import (
 def main() -> None:
     # Read all bef parquet files
     bef_files = BEF_FILES
-    bef = pl.scan_parquet(bef_files, allow_missing_columns=True).with_columns(
-        [parse_dates("FOED_DAG")],
+    bef = pl.scan_parquet(
+        bef_files,
+        allow_missing_columns=True,
+        schema={
+            "PNR": pl.Utf8,
+            "FAR_ID": pl.Utf8,
+            "MOR_ID": pl.Utf8,
+            "FAMILIE_ID": pl.Utf8,
+            "FOED_DAG": pl.Utf8,
+        },
+    ).with_columns(
+        [
+            parse_dates("FOED_DAG"),
+        ],
     )
 
     # Process children
@@ -74,6 +88,9 @@ def main() -> None:
         ],
     )
 
+    # Ensure the directory exists
+    output_dir = Path(POPULATION_FILE).parent
+    output_dir.mkdir(parents=True, exist_ok=True)
     # Write result into parquet file
     family.write_parquet(POPULATION_FILE)
 

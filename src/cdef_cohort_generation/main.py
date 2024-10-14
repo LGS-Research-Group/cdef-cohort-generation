@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import polars as pl
@@ -31,6 +32,7 @@ from cdef_cohort_generation.utils import (
     POPULATION_FILE,
     UDDF_OUT,
     apply_scd_algorithm,
+    harmonize_health_data,
     identify_events,
 )
 
@@ -63,14 +65,28 @@ def identify_severe_chronic_disease() -> pl.LazyFrame:
     # Step 4: Combine LPR3 data
     lpr3 = lpr3_kontakter.join(lpr3_diagnoser, on="DW_EK_KONTAKT", how="left")
 
-    # Step 5: Combine all health data
-    health_data = pl.concat([lpr2, lpr3])
+    # Debug: Log column names before harmonization
+    log(f"LPR2 columns before harmonization: {lpr2.collect_schema().names()}")
+    log(f"LPR3 columns before harmonization: {lpr3.collect_schema().names()}")
+    # Step 5: Harmonize and combine all health data
+    lpr2_harmonized, lpr3_harmonized = harmonize_health_data(lpr2, lpr3)
+
+    log(f"LPR2 columns after harmonization: {lpr2_harmonized.collect_schema().names()}")
+    log(f"LPR3 columns after harmonization: {lpr3_harmonized.collect_schema().names()}")
+    health_data = pl.concat([lpr2_harmonized, lpr3_harmonized])
 
     # Step 6: Apply SCD algorithm
     scd_data = apply_scd_algorithm(health_data)
 
+    # Debug: Log column names after SCD algorithm
+    log(f"SCD data columns: {scd_data.collect_schema().names()}")
+
+    # Check if patient_id exists
+    if "patient_id" not in scd_data.collect_schema().names():
+        raise ValueError("patient_id column not found in SCD data after processing")
+
     # Step 7: Aggregate to patient level
-    return scd_data.group_by("PNR").agg(
+    return scd_data.group_by("patient_id").agg(
         [
             pl.col("is_scd").max().alias("is_scd"),
             pl.col("first_scd_date").min().alias("first_scd_date"),
@@ -81,10 +97,25 @@ def identify_severe_chronic_disease() -> pl.LazyFrame:
 def process_static_data(scd_data: pl.LazyFrame) -> pl.LazyFrame:
     """Process static cohort data."""
     population = pl.scan_parquet(POPULATION_FILE)
-    return population.join(scd_data, on="PNR", how="left")
 
-    # Add any other static data processing here
+    # Check if PNR exists in both dataframes
+    if "PNR" not in population.collect_schema().names():
+        raise ValueError("PNR column not found in population data")
+    if "patient_id" not in scd_data.collect_schema().names():
+        raise ValueError("PNR column not found in SCD data")
 
+    # Ensure PNR is of the same type in both dataframes
+    population = population.with_columns(pl.col("PNR").cast(pl.Utf8))
+    scd_data = scd_data.with_columns(pl.col("patient_id").cast(pl.Utf8))
+
+    # Join the dataframes
+    result = population.join(scd_data, left_on="PNR", right_on="patient_id", how="left")
+
+    # Check if PNR exists in the result
+    if "PNR" not in result.collect_schema().names():
+        raise ValueError("PNR column not found in joined result")
+
+    return result
 
 
 def process_longitudinal_data() -> pl.LazyFrame:
@@ -107,7 +138,18 @@ def process_longitudinal_data() -> pl.LazyFrame:
 
 
 # Main execution
-def main(output_dir: Path) -> None:
+def main(output_dir: Path | None = None) -> None:
+    if output_dir is None:
+        output_dir = COHORT_FILE.parent
+
+    # Ensure output directories exist
+    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(LPR_ADM_OUT.parent, exist_ok=True)
+    os.makedirs(LPR_DIAG_OUT.parent, exist_ok=True)
+    os.makedirs(LPR_BES_OUT.parent, exist_ok=True)
+    os.makedirs(LPR3_DIAGNOSER_OUT.parent, exist_ok=True)
+    os.makedirs(LPR3_KONTAKTER_OUT.parent, exist_ok=True)
+
     log("Starting cohort generation process")
 
     # Generate population
@@ -140,4 +182,4 @@ def main(output_dir: Path) -> None:
 
 
 if __name__ == "__main__":
-    main(COHORT_FILE.parent)
+    main()
