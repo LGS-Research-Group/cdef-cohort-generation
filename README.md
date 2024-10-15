@@ -19,20 +19,6 @@ The primary objectives of this study are:
 - Perform longitudinal data analysis
 - Apply statistical methods including difference-in-differences analysis and marginal structural models
 
-## Project Structure
-
-- `src/cdef_cohort_generation/`: Main package containing all the source code
-  - `config.py`: Configuration settings and file paths
-  - `logging_config.py`: Logging setup
-  - `main.py`: Main execution script
-  - `mappings.py`: Data mappings and dictionaries
-  - `population.py`: Population data processing
-  - `registers/`: Modules for processing different registers
-  - `types.py`: Custom type definitions
-  - `utils.py`: Utility functions
-
-- `tests/`: Unit tests for the project
-
 ## Installation
 
 This project requires Python 3.12.6 and uses `rye` for dependency management.
@@ -59,6 +45,14 @@ To run the unit tests:
 ```
 pytest tests/
 ```
+
+## Todo
+
+- Make sure LPR2/LPR3 processing is as smooth as possible
+- Include mappings for variables + ISCED
+- Improve logging and error handling
+- Add descriptive plots
+- Refactor code for better organization and efficiency
 
 ## License
 
