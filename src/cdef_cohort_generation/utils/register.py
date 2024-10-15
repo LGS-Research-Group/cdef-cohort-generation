@@ -1,3 +1,4 @@
+import glob
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -45,20 +46,39 @@ def process_register_data(
     logger.info(f"Processing register: {register_name}")
     logger.info(f"Input files path: {input_files}")
 
+    # Use glob to find all .parquet files
+    file_pattern = str(input_files)
+    if not file_pattern.endswith("*.parquet"):
+        file_pattern = str(input_files / "*.parquet")
+    files = glob.glob(file_pattern)
+
+    if not files:
+        logger.error(f"No parquet files found matching pattern: {file_pattern}")
+        logger.info(f"Directory contents: {list(Path(input_files).parent.iterdir())}")
+        raise FileNotFoundError(f"No parquet files found matching pattern: {file_pattern}")
+
+    logger.info(f"Found {len(files)} parquet files")
+
     if longitudinal:
         data_frames = []
-        for file in input_files.glob("*.parquet"):
+        for file in files:
             logger.info(f"Processing {file}")
             df = pl.scan_parquet(file)
-            date_info = extract_date_from_filename(file.stem)
+            date_info = extract_date_from_filename(Path(file).stem)
             if "year" in date_info:
                 df = df.with_columns(pl.lit(date_info["year"]).alias("year"))
             if "month" in date_info:
                 df = df.with_columns(pl.lit(date_info["month"]).alias("month"))
             data_frames.append(df)
+
+        if not data_frames:
+            logger.error("No data frames were created from the parquet files")
+            raise ValueError("No data frames were created from the parquet files")
+
         data = pl.concat(data_frames)
     else:
-        data = pl.scan_parquet(input_files, allow_missing_columns=True)
+        data = pl.scan_parquet(files, allow_missing_columns=True)
+
 
     # Parse date columns if specified
     if date_columns:

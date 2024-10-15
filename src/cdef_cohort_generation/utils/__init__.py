@@ -35,10 +35,15 @@ from .config import (
 )
 from .date import extract_date_from_filename, parse_dates
 from .event import identify_events
+from .harmonize_lpr import (
+    combine_harmonized_data,
+    harmonize_health_data,
+    integrate_lpr2_components,
+    integrate_lpr3_components,
+)
 from .icd import (
     add_icd_descriptions,
     apply_scd_algorithm,
-    harmonize_health_data,
     read_icd_descriptions,
 )
 from .isced import read_isced_data
@@ -46,6 +51,9 @@ from .register import process_register_data
 from .types import KwargsType
 
 __all__ = [
+    "combine_harmonized_data",
+    "integrate_lpr2_components",
+    "integrate_lpr3_components",
     "harmonize_health_data",
     "config",
     "extract_date_from_filename",

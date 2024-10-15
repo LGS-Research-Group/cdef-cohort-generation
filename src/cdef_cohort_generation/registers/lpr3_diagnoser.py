@@ -19,7 +19,7 @@ LPR3_DIAGNOSER_SCHEMA = {
 
 
 def process_lpr3_diagnoser(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
-    default_columns = ["DW_EK_KONTAKT", "diagnosekode", "diagnosetype"]
+    default_columns = ["DW_EK_KONTAKT", "diagnosekode"]
     columns = columns_to_keep if columns_to_keep is not None else default_columns
     process_register_data(
         input_files=LPR3_DIAGNOSER_FILES,

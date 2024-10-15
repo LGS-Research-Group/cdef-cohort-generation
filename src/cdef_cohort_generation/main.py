@@ -1,4 +1,5 @@
 import os
+import warnings
 from pathlib import Path
 
 import polars as pl
@@ -32,9 +33,37 @@ from cdef_cohort_generation.utils import (
     POPULATION_FILE,
     UDDF_OUT,
     apply_scd_algorithm,
+    combine_harmonized_data,
     harmonize_health_data,
     identify_events,
+    integrate_lpr2_components,
+    integrate_lpr3_components,
 )
+
+warnings.filterwarnings("ignore", category=pl.PerformanceWarning)
+
+
+def log_lazyframe_info(name: str, df: pl.LazyFrame):
+    schema = df.collect_schema()
+    total_rows = df.select(pl.count()).collect()[0, 0]
+
+    log(f"--- {name} ---")
+    log(f"Number of rows: {total_rows}")
+    log(f"Columns and types: {str(schema)}")
+
+    # Compute missing values for each column
+    missing_values = df.select(
+        [pl.col(col).null_count().alias(f"{col}_null_count") for col in schema.keys()]
+    ).collect()
+
+    log("Missing values:")
+    for col in schema.keys():
+        null_count = missing_values[0, f"{col}_null_count"]
+        percentage = (null_count / total_rows) * 100
+        log(f"  {col}: {null_count} ({percentage:.2f}%)")
+
+    log(f"Sample data:\n{df.fetch(5)}")
+    log("-------------------")
 
 
 def identify_severe_chronic_disease() -> pl.LazyFrame:
@@ -45,38 +74,78 @@ def identify_severe_chronic_disease() -> pl.LazyFrame:
 
     """
     # Step 1: Process health register data
-    process_lpr_adm()
-    process_lpr_diag()
-    process_lpr_bes()
-    process_lpr3_diagnoser()
-    process_lpr3_kontakter()
+    process_lpr_adm(columns_to_keep=["PNR", "C_ADIAG", "RECNUM", "D_INDDTO"])
+    process_lpr_diag(columns_to_keep=["RECNUM", "C_DIAG", "C_TILDIAG"])
+    process_lpr_bes(columns_to_keep=["D_AMBDTO", "RECNUM"])
+    process_lpr3_diagnoser(columns_to_keep=["DW_EK_KONTAKT", "diagnosekode"])
+    process_lpr3_kontakter(
+        columns_to_keep=["DW_EK_KONTAKT", "CPR", "aktionsdiagnose", "dato_start"]
+    )
 
-    # Step 2: Read processed health data
+    # Read processed health data
+    # LPR2
     lpr_adm = pl.scan_parquet(LPR_ADM_OUT)
     lpr_diag = pl.scan_parquet(LPR_DIAG_OUT)
     lpr_bes = pl.scan_parquet(LPR_BES_OUT)
+    # LPR3
     lpr3_diagnoser = pl.scan_parquet(LPR3_DIAGNOSER_OUT)
     lpr3_kontakter = pl.scan_parquet(LPR3_KONTAKTER_OUT)
 
-    # Step 3: Combine LPR2 data
-    lpr2 = lpr_adm.join(lpr_diag, on="RECNUM", how="left")
-    lpr2 = lpr2.join(lpr_bes, on="RECNUM", how="left")
+    # Log info for individual LazyFrames
+    log_lazyframe_info("LPR_ADM", lpr_adm)
+    log_lazyframe_info("LPR_DIAG", lpr_diag)
+    log_lazyframe_info("LPR_BES", lpr_bes)
+    log_lazyframe_info("LPR3_DIAGNOSER", lpr3_diagnoser)
+    log_lazyframe_info("LPR3_KONTAKTER", lpr3_kontakter)
 
-    # Step 4: Combine LPR3 data
-    lpr3 = lpr3_kontakter.join(lpr3_diagnoser, on="DW_EK_KONTAKT", how="left")
+    # Combine LPR2 data
+    lpr2 = integrate_lpr2_components(lpr_adm, lpr_diag, lpr_bes)
+    # Log info for combined LPR2 data
+    log_lazyframe_info("Combined LPR2", lpr2)
 
-    # Debug: Log column names before harmonization
-    log(f"LPR2 columns before harmonization: {lpr2.collect_schema().names()}")
-    log(f"LPR3 columns before harmonization: {lpr3.collect_schema().names()}")
+    # Combine LPR3 data
+    lpr3 = integrate_lpr3_components(lpr3_kontakter, lpr3_diagnoser)
+    # Log info for combined LPR3 data
+    log_lazyframe_info("Combined LPR3", lpr3)
+
     # Step 5: Harmonize and combine all health data
     lpr2_harmonized, lpr3_harmonized = harmonize_health_data(lpr2, lpr3)
 
-    log(f"LPR2 columns after harmonization: {lpr2_harmonized.collect_schema().names()}")
-    log(f"LPR3 columns after harmonization: {lpr3_harmonized.collect_schema().names()}")
-    health_data = pl.concat([lpr2_harmonized, lpr3_harmonized])
+    # Log info for harmonized data
+    log_lazyframe_info("Harmonized LPR2", lpr2_harmonized)
+    log_lazyframe_info("Harmonized LPR3", lpr3_harmonized)
 
-    # Step 6: Apply SCD algorithm
-    scd_data = apply_scd_algorithm(health_data)
+    # Combine harmonized data
+    health_data = combine_harmonized_data(lpr2_harmonized, lpr3_harmonized)
+
+    log("Combined health data schema:")
+    log(str(health_data.collect_schema()))
+
+    log("Sample of combined health data:")
+    sample_data = health_data.fetch(5)
+    log(str(sample_data))
+
+    log("Column types:")
+    for col in sample_data.columns:
+        log(f"{col}: {sample_data[col].dtype}")
+
+    # Log info for final combined health data
+    log_lazyframe_info("Combined Health Data", health_data)
+
+    # # Step 6: Apply SCD algorithm
+    # columns_to_check = [
+    #     "primary_diagnosis",
+    #     "secondary_diagnosis",
+    #     "diagnosis",
+    # ]
+    # scd_data = apply_scd_algorithm(health_data, columns_to_check)
+
+    diagnosis_date_mapping = {
+        "primary_diagnosis": "admission_date",
+        "secondary_diagnosis": "admission_date",
+        "diagnosis": "outpatient_date",
+    }
+    scd_data = apply_scd_algorithm(health_data, diagnosis_date_mapping)
 
     # Debug: Log column names after SCD algorithm
     log(f"SCD data columns: {scd_data.collect_schema().names()}")
@@ -86,12 +155,28 @@ def identify_severe_chronic_disease() -> pl.LazyFrame:
         raise ValueError("patient_id column not found in SCD data after processing")
 
     # Step 7: Aggregate to patient level
-    return scd_data.group_by("patient_id").agg(
+    aggregated_scd_data = scd_data.group_by("patient_id").agg(
         [
             pl.col("is_scd").max().alias("is_scd"),
             pl.col("first_scd_date").min().alias("first_scd_date"),
         ],
     )
+
+    # Collect the data and print summary
+    collected_data = aggregated_scd_data.collect()
+    total_patients = collected_data.shape[0]
+    scd_patients = collected_data.filter(pl.col("is_scd")).shape[0]
+
+    log(f"Total number of patients: {total_patients}")
+    log(f"Number of patients with SCD: {scd_patients}")
+    log(f"Percentage of patients with SCD: {scd_patients / total_patients * 100:.2f}%")
+
+    # Print a sample of SCD patients
+    scd_sample = collected_data.filter(pl.col("is_scd")).head(n=min(5, scd_patients))
+    log("Sample of SCD patients:")
+    log(f"Sample of SCD cases:\n{scd_sample}")
+
+    return aggregated_scd_data
 
 
 def process_static_data(scd_data: pl.LazyFrame) -> pl.LazyFrame:

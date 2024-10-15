@@ -32,7 +32,7 @@ LPR3_KONTAKTER_SCHEMA = {
 
 
 def process_lpr3_kontakter(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
-    default_columns = ["DW_EK_KONTAKT", "CPR", "dato_start", "dato_slut", "aktionsdiagnose"]
+    default_columns = ["DW_EK_KONTAKT", "CPR", "dato_start", "aktionsdiagnose", "dato_slut"]
 
     columns = columns_to_keep if columns_to_keep is not None else default_columns
     process_register_data(

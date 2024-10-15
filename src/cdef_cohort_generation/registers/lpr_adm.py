@@ -43,12 +43,12 @@ def process_lpr_adm(columns_to_keep: list[str] | None = None, **kwargs: KwargsTy
         "PNR",
         "C_ADIAG",
         "D_INDDTO",
-        "D_UDDTO",
+        # "D_UDDTO",
         "RECNUM",
-        "C_KOM",
-        "C_SGH",
-        "C_AFD",
-        "C_PATTYPE",
+        # "C_KOM",
+        # "C_SGH",
+        # "C_AFD",
+        # "C_PATTYPE",
     ]
     columns = columns_to_keep if columns_to_keep is not None else default_columns
     process_register_data(

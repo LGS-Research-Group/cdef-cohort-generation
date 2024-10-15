@@ -18,7 +18,11 @@ LPR_DIAG_SCHEMA = {
 
 
 def process_lpr_diag(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
-    default_columns = ["C_DIAG", "C_DIAGTYPE", "RECNUM"]
+    default_columns = [
+        "RECNUM",
+        "C_DIAG",
+        "C_TILDIAG",
+    ]
     columns = columns_to_keep if columns_to_keep is not None else default_columns
     process_register_data(
         input_files=LPR_DIAG_FILES,
