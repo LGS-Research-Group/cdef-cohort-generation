@@ -1,5 +1,4 @@
 import os
-import warnings
 from pathlib import Path
 
 import polars as pl
@@ -31,6 +30,7 @@ from cdef_cohort_generation.utils import (
     LPR_BES_OUT,
     LPR_DIAG_OUT,
     POPULATION_FILE,
+    STATIC_COHORT,
     UDDF_OUT,
     apply_scd_algorithm,
     combine_harmonized_data,
@@ -40,7 +40,7 @@ from cdef_cohort_generation.utils import (
     integrate_lpr3_components,
 )
 
-warnings.filterwarnings("ignore", category=pl.PerformanceWarning)
+# warnings.filterwarnings("ignore", category=pl.PerformanceWarning)
 
 
 def log_lazyframe_info(name: str, df: pl.LazyFrame):
@@ -62,7 +62,9 @@ def log_lazyframe_info(name: str, df: pl.LazyFrame):
         percentage = (null_count / total_rows) * 100
         log(f"  {col}: {null_count} ({percentage:.2f}%)")
 
-    log(f"Sample data:\n{df.fetch(5)}")
+    # Fetch a sample of data, handling the case where 'month' might not be present
+    sample_data = df.fetch(5)
+    log(f"Sample data:\n{sample_data}")
     log("-------------------")
 
 
@@ -92,45 +94,45 @@ def identify_severe_chronic_disease() -> pl.LazyFrame:
     lpr3_kontakter = pl.scan_parquet(LPR3_KONTAKTER_OUT)
 
     # Log info for individual LazyFrames
-    log_lazyframe_info("LPR_ADM", lpr_adm)
-    log_lazyframe_info("LPR_DIAG", lpr_diag)
-    log_lazyframe_info("LPR_BES", lpr_bes)
-    log_lazyframe_info("LPR3_DIAGNOSER", lpr3_diagnoser)
-    log_lazyframe_info("LPR3_KONTAKTER", lpr3_kontakter)
+    # log_lazyframe_info("LPR_ADM", lpr_adm)
+    # log_lazyframe_info("LPR_DIAG", lpr_diag)
+    # log_lazyframe_info("LPR_BES", lpr_bes)
+    # log_lazyframe_info("LPR3_DIAGNOSER", lpr3_diagnoser)
+    # log_lazyframe_info("LPR3_KONTAKTER", lpr3_kontakter)
 
     # Combine LPR2 data
     lpr2 = integrate_lpr2_components(lpr_adm, lpr_diag, lpr_bes)
     # Log info for combined LPR2 data
-    log_lazyframe_info("Combined LPR2", lpr2)
+    # log_lazyframe_info("Combined LPR2", lpr2)
 
     # Combine LPR3 data
     lpr3 = integrate_lpr3_components(lpr3_kontakter, lpr3_diagnoser)
     # Log info for combined LPR3 data
-    log_lazyframe_info("Combined LPR3", lpr3)
+    # log_lazyframe_info("Combined LPR3", lpr3)
 
     # Step 5: Harmonize and combine all health data
     lpr2_harmonized, lpr3_harmonized = harmonize_health_data(lpr2, lpr3)
 
     # Log info for harmonized data
-    log_lazyframe_info("Harmonized LPR2", lpr2_harmonized)
-    log_lazyframe_info("Harmonized LPR3", lpr3_harmonized)
+    # log_lazyframe_info("Harmonized LPR2", lpr2_harmonized)
+    # log_lazyframe_info("Harmonized LPR3", lpr3_harmonized)
 
     # Combine harmonized data
     health_data = combine_harmonized_data(lpr2_harmonized, lpr3_harmonized)
 
-    log("Combined health data schema:")
-    log(str(health_data.collect_schema()))
+    # log("Combined health data schema:")
+    # log(str(health_data.collect_schema()))
 
-    log("Sample of combined health data:")
-    sample_data = health_data.fetch(5)
-    log(str(sample_data))
+    # log("Sample of combined health data:")
+    # sample_data = health_data.fetch(5)
+    # log(str(sample_data))
 
-    log("Column types:")
-    for col in sample_data.columns:
-        log(f"{col}: {sample_data[col].dtype}")
+    # log("Column types:")
+    # for col in sample_data.columns:
+    #     log(f"{col}: {sample_data[col].dtype}")
 
-    # Log info for final combined health data
-    log_lazyframe_info("Combined Health Data", health_data)
+    # # Log info for final combined health data
+    # log_lazyframe_info("Combined Health Data", health_data)
 
     # # Step 6: Apply SCD algorithm
     # columns_to_check = [
@@ -148,7 +150,7 @@ def identify_severe_chronic_disease() -> pl.LazyFrame:
     scd_data = apply_scd_algorithm(health_data, diagnosis_date_mapping)
 
     # Debug: Log column names after SCD algorithm
-    log(f"SCD data columns: {scd_data.collect_schema().names()}")
+    # log(f"SCD data columns: {scd_data.collect_schema().names()}")
 
     # Check if patient_id exists
     if "patient_id" not in scd_data.collect_schema().names():
@@ -205,21 +207,33 @@ def process_static_data(scd_data: pl.LazyFrame) -> pl.LazyFrame:
 
 def process_longitudinal_data() -> pl.LazyFrame:
     """Process longitudinal data from various registers."""
+    common_params = {
+        "population_file": STATIC_COHORT,
+        "longitudinal": True,
+    }
+
     # Process registers that contain longitudinal data
-    process_bef(longitudinal=True)
-    process_akm(longitudinal=True)
-    process_ind(longitudinal=True)
-    process_idan(longitudinal=True)
-    process_uddf(longitudinal=True)
+    process_bef(**common_params, columns_to_keep=[])
+    process_akm(**common_params)
+    process_ind(**common_params)
+    process_idan(**common_params)
+    process_uddf(**common_params)
 
     # Combine longitudinal data from different registers
     longitudinal_registers = [BEF_OUT, AKM_OUT, IND_OUT, IDAN_OUT, UDDF_OUT]
     longitudinal_data = []
+    all_columns = set()
+
     for register in longitudinal_registers:
         register_data = pl.scan_parquet(register)
+        log(f"Schema for {register}: {register_data.collect_schema()}")
+        all_columns.update(register_data.collect_schema().names())
         longitudinal_data.append(register_data)
 
-    return pl.concat(longitudinal_data)
+    log(f"All columns across registers: {all_columns}")
+
+    # Use union_all instead of concat
+    return pl.concat(longitudinal_data, how="diagonal")
 
 
 # Main execution
@@ -251,12 +265,13 @@ def main(output_dir: Path | None = None) -> None:
     log("Processing static data")
     static_cohort = process_static_data(scd_data)
     log("Static data processing completed")
-    static_cohort.collect().write_parquet(output_dir / "static_cohort.parquet")
-    log(f"Static cohort data written to {output_dir / 'static_cohort.parquet'}")
+    static_cohort.collect().write_parquet(STATIC_COHORT)
+    log(f"Static cohort data written to {STATIC_COHORT.name}")
 
     # Process longitudinal data
     log("Processing longitudinal data")
     longitudinal_data = process_longitudinal_data()
+    # log_lazyframe_info("Longitudianl data: ", longitudinal_data)
     log("Longitudinal data processing completed")
     longitudinal_data.collect().write_parquet(output_dir / "longitudinal_data.parquet")
     log(f"Longitudinal data written to {output_dir / 'longitudinal_data.parquet'}")

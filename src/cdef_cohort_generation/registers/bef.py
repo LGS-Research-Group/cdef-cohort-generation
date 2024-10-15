@@ -38,9 +38,9 @@ BEF_SCHEMA = {
     "VERSION": pl.Utf8,
 }
 
-
-def process_bef(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
-    default_columns = [
+BEF_DEFAULTS = {
+    "population_file": POPULATION_FILE,
+    "columns_to_keep": [
         "AEGTE_ID",
         "ALDER",
         "ANTBOERNF",
@@ -67,23 +67,21 @@ def process_bef(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) 
         "STATSB",
         "year",
         "month",
-    ]
-    # Use default_columns if columns_to_keep is None
-    columns = columns_to_keep if columns_to_keep is not None else default_columns
-    # Merge the kwargs with the default arguments
-    process_args = {
-        "input_files": BEF_FILES,
-        "output_file": BEF_OUT,
-        "population_file": POPULATION_FILE,
-        "schema": BEF_SCHEMA,
-        "date_columns": ["FOED_DAG", "BOP_VFRA"],
-        "columns_to_keep": columns,
-        "join_parents_only": False,
-        "longitudinal": True,
-    }
-    process_args.update(kwargs)
+    ],
+    "date_columns": ["FOED_DAG", "BOP_VFRA"],
+    "join_parents_only": False,
+    "longitudinal": True,
+}
 
-    process_register_data(**process_args)
+
+def process_bef(**kwargs: KwargsType) -> None:
+    process_register_data(
+        input_files=BEF_FILES,
+        output_file=BEF_OUT,
+        schema=BEF_SCHEMA,
+        defaults=BEF_DEFAULTS,
+        **kwargs,
+    )
 
 
 if __name__ == "__main__":

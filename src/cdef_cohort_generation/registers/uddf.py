@@ -21,26 +21,22 @@ UDDF_SCHEMA = {
 }
 
 
-def process_uddf(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
-    default_columns = [
-        "PNR",
-        "HFAUDD",
-        "HF_KILDE",
-        "HF_VFRA",
-        "INSTNR",
-    ]
-    # Use default_columns if columns_to_keep is None
-    columns = columns_to_keep if columns_to_keep is not None else default_columns
+UDDF_DEFAULTS = {
+    "population_file": POPULATION_FILE,
+    "columns_to_keep": ["PNR", "HFAUDD", "HF_KILDE", "HF_VFRA", "INSTNR"],
+    "date_columns": ["HF_VFRA", "HF_VTIL"],
+    "join_parents_only": True,
+    "register_name": "UDDF",
+    "longitudinal": True,
+}
 
+
+def process_uddf(**kwargs: KwargsType) -> None:
     process_register_data(
         input_files=UDDF_FILES,
         output_file=UDDF_OUT,
-        population_file=POPULATION_FILE,
         schema=UDDF_SCHEMA,
-        date_columns=["HF_VFRA", "HF_VTIL"],
-        columns_to_keep=columns,
-        join_parents_only=True,
-        register_name="UDDF",
+        defaults=UDDF_DEFAULTS,
         **kwargs,
     )
 

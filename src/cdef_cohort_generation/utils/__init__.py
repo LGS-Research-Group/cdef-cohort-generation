@@ -16,6 +16,7 @@ from .config import (
     IND_FILES,
     IND_OUT,
     ISCED_FILE,
+    ISCED_TSV_FILE,
     LPR3_DIAGNOSER_FILES,
     LPR3_DIAGNOSER_OUT,
     LPR3_KONTAKTER_FILES,
@@ -30,6 +31,7 @@ from .config import (
     POPULATION_FILE,
     RDAT_FILE,
     REGISTER_DIR,
+    STATIC_COHORT,
     UDDF_FILES,
     UDDF_OUT,
 )
@@ -51,6 +53,8 @@ from .register import process_register_data
 from .types import KwargsType
 
 __all__ = [
+    "ISCED_TSV_FILE",
+    "STATIC_COHORT",
     "combine_harmonized_data",
     "integrate_lpr2_components",
     "integrate_lpr3_components",

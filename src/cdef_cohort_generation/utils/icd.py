@@ -370,12 +370,16 @@ def apply_scd_algorithm(df: pl.LazyFrame, diagnosis_date_mapping: dict[str, str]
     is_scd_expr = pl.lit(False)
 
     # Check for missing diagnosis columns
-    missing_columns = [col for col in diagnosis_date_mapping.keys() if col not in df.columns]
+    missing_columns = [
+        col for col in diagnosis_date_mapping.keys() if col not in df.collect_schema().names()
+    ]
     if missing_columns:
         print(f"Warning: The diagnosis columns are not found: {', '.join(missing_columns)}")
 
     # Filter out missing columns
-    valid_mapping = {k: v for k, v in diagnosis_date_mapping.items() if k in df.columns}
+    valid_mapping = {
+        k: v for k, v in diagnosis_date_mapping.items() if k in df.collect_schema().names()
+    }
 
     for diag_col in valid_mapping.keys():
         is_scd_expr = is_scd_expr | (
@@ -394,7 +398,9 @@ def apply_scd_algorithm(df: pl.LazyFrame, diagnosis_date_mapping: dict[str, str]
     result = df.with_columns(is_scd=is_scd_expr)
 
     # Determine the first SCD date
-    valid_date_columns = [col for col in valid_mapping.values() if col in df.columns]
+    valid_date_columns = [
+        col for col in valid_mapping.values() if col in df.collect_schema().names()
+    ]
     if not valid_date_columns:
         print("Warning: No valid date columns found for SCD date determination")
         first_scd_date_expr = pl.lit(None).alias("first_scd_date")

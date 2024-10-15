@@ -1,9 +1,9 @@
 import glob
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 import polars as pl
-import polars.selectors as cs
 
 from cdef_cohort_generation.logging_config import logger
 from cdef_cohort_generation.utils.date import extract_date_from_filename, parse_dates
@@ -14,14 +14,8 @@ from cdef_cohort_generation.utils.types import KwargsType
 def process_register_data(
     input_files: Path,
     output_file: Path,
-    population_file: Path | None,
     schema: Mapping[str, pl.DataType | type[pl.DataType]],
-    date_columns: list[str] | None = None,
-    columns_to_keep: list[str] | None = None,
-    join_on: str | list[str] = "PNR",
-    join_parents_only: bool = False,
-    register_name: str = "",
-    longitudinal: bool = False,
+    defaults: dict[str, Any],
     **kwargs: KwargsType,
 ) -> None:
     """Process register data, join with population data, and save the result.
@@ -43,6 +37,17 @@ def process_register_data(
     None
 
     """
+    # Merge defaults with provided kwargs, prioritizing kwargs
+    params = {**defaults, **kwargs}
+
+    population_file = params.get("population_file")
+    date_columns = params.get("date_columns")
+    columns_to_keep = params.get("columns_to_keep")
+    join_on = params.get("join_on", "PNR")
+    join_parents_only = params.get("join_parents_only", False)
+    register_name = params.get("register_name", "")
+    longitudinal = params.get("longitudinal", False)
+
     logger.info(f"Processing register: {register_name}")
     logger.info(f"Input files path: {input_files}")
 
@@ -79,7 +84,6 @@ def process_register_data(
     else:
         data = pl.scan_parquet(files, allow_missing_columns=True)
 
-
     # Parse date columns if specified
     if date_columns:
         for col in date_columns:
@@ -106,16 +110,31 @@ def process_register_data(
 
         # If joining on parents, we need to join twice more for parent-specific data
         if join_parents_only:
-            result = result.join(
-                data.select(cs.starts_with("FAR_")),
-                left_on="FAR_ID",
-                right_on=f"FAR_{join_on}",
-                how="left",
+            # For father's data
+            father_data = data.select(
+                [
+                    pl.col(col).alias(f"FAR_{col}" if col != join_on else col)
+                    for col in data.collect_schema().names()
+                ]
             )
             result = result.join(
-                data.select(cs.starts_with("MOR_")),
+                father_data,
+                left_on="FAR_ID",
+                right_on=join_on,
+                how="left",
+            )
+
+            # For mother's data
+            mother_data = data.select(
+                [
+                    pl.col(col).alias(f"MOR_{col}" if col != join_on else col)
+                    for col in data.collect_schema().names()
+                ]
+            )
+            result = result.join(
+                mother_data,
                 left_on="MOR_ID",
-                right_on=f"MOR_{join_on}",
+                right_on=join_on,
                 how="left",
             )
         else:

@@ -19,18 +19,21 @@ AKM_SCHEMA = {
     "SENR": pl.Utf8,  # Dont know the structure of this
 }
 
+AKM_DEFAULTS = {
+    "population_file": POPULATION_FILE,
+    "columns_to_keep": ["PNR", "SOCIO13", "SENR", "year"],
+    "join_parents_only": True,
+    "longitudinal": False,
+}
+
 
 def process_akm(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
-    default_columns = ["PNR", "SOCIO13", "SENR", "year"]
-    columns = columns_to_keep if columns_to_keep is not None else default_columns
-
+    """Process AKM data, join with population data, and save the result."""
     process_register_data(
         input_files=AKM_FILES,
         output_file=AKM_OUT,
-        population_file=POPULATION_FILE,
         schema=AKM_SCHEMA,
-        columns_to_keep=columns,
-        join_parents_only=True,
+        defaults=AKM_DEFAULTS,
         **kwargs,
     )
 

@@ -18,15 +18,18 @@ LPR3_DIAGNOSER_SCHEMA = {
 }
 
 
-def process_lpr3_diagnoser(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
-    default_columns = ["DW_EK_KONTAKT", "diagnosekode"]
-    columns = columns_to_keep if columns_to_keep is not None else default_columns
+LPR3_DIAGNOSER_DEFAULTS = {
+    "population_file": None,
+    "columns_to_keep": ["DW_EK_KONTAKT", "diagnosekode"],
+}
+
+
+def process_lpr3_diagnoser(**kwargs: KwargsType) -> None:
     process_register_data(
         input_files=LPR3_DIAGNOSER_FILES,
         output_file=LPR3_DIAGNOSER_OUT,
-        population_file=None,
         schema=LPR3_DIAGNOSER_SCHEMA,
-        columns_to_keep=columns,
+        defaults=LPR3_DIAGNOSER_DEFAULTS,
         **kwargs,
     )
 

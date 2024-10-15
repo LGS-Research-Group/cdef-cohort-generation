@@ -17,21 +17,28 @@ LPR_DIAG_SCHEMA = {
 }
 
 
-def process_lpr_diag(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
-    default_columns = [
+LPR_DIAG_DEFAULTS = {
+    "population_file": None,
+    "columns_to_keep": [
         "RECNUM",
         "C_DIAG",
         "C_TILDIAG",
-    ]
-    columns = columns_to_keep if columns_to_keep is not None else default_columns
+    ],
+    "date_columns": [
+        "LEVERANCEDATO",
+    ],
+}
+
+
+def process_lpr_diag(**kwargs: KwargsType) -> None:
     process_register_data(
         input_files=LPR_DIAG_FILES,
         output_file=LPR_DIAG_OUT,
-        population_file=None,
         schema=LPR_DIAG_SCHEMA,
-        date_columns=[
-            "LEVERANCEDATO",
-        ],
-        columns_to_keep=columns,
+        defaults=LPR_DIAG_DEFAULTS,
         **kwargs,
     )
+
+
+if __name__ == "__main__":
+    process_lpr_diag()

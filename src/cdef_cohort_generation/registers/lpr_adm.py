@@ -38,33 +38,35 @@ LPR_ADM_SCHEMA = {
 }
 
 
-def process_lpr_adm(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
-    default_columns = [
+LPR_ADM_DEFAULTS = {
+    "population_file": None,
+    "columns_to_keep": [
         "PNR",
         "C_ADIAG",
         "D_INDDTO",
-        # "D_UDDTO",
         "RECNUM",
-        # "C_KOM",
-        # "C_SGH",
-        # "C_AFD",
-        # "C_PATTYPE",
-    ]
-    columns = columns_to_keep if columns_to_keep is not None else default_columns
+    ],
+    "date_columns": [
+        "D_HENDTO",
+        "D_INDDTO",
+        "D_UDDTO",
+    ],
+}
+
+
+def process_lpr_adm(**kwargs: KwargsType) -> None:
     process_register_data(
         input_files=LPR_ADM_FILES,
         output_file=LPR_ADM_OUT,
-        population_file=None,
         schema=LPR_ADM_SCHEMA,
-        date_columns=[
-            "D_HENDTO",
-            "D_INDDTO",
-            "D_UDDTO",
-        ],
-        columns_to_keep=columns,
+        defaults=LPR_ADM_DEFAULTS,
         **kwargs,
     )
 
 
 def main() -> None:
     process_lpr_adm()
+
+
+if __name__ == "__main__":
+    main()

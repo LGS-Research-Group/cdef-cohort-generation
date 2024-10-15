@@ -23,8 +23,9 @@ IDAN_SCHEMA = {
 }
 
 
-def process_idan(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
-    default_columns = [
+IDAN_DEFAULTS = {
+    "population_file": POPULATION_FILE,
+    "columns_to_keep": [
         "PNR",
         "ARBGNR",
         "ARBNR",
@@ -35,17 +36,18 @@ def process_idan(columns_to_keep: list[str] | None = None, **kwargs: KwargsType)
         "STILL",
         "TILKNYT",
         "year",
-    ]
-    # Use default_columns if columns_to_keep is None
-    columns = columns_to_keep if columns_to_keep is not None else default_columns
+    ],
+    "join_parents_only": True,
+    "longitudinal": True,
+}
+
+
+def process_idan(**kwargs: KwargsType) -> None:
     process_register_data(
         input_files=IDAN_FILES,
         output_file=IDAN_OUT,
-        population_file=POPULATION_FILE,
         schema=IDAN_SCHEMA,
-        columns_to_keep=columns,
-        join_parents_only=True,
-        longitudinal=True,
+        defaults=IDAN_DEFAULTS,
         **kwargs,
     )
 

@@ -13,17 +13,22 @@ LPR_BES_SCHEMA = {
     "RECNUM": pl.Utf8,  # LPR-identnummer
     "VERSION": pl.Utf8,  # DST Version
 }
+LPR_BES_DEFAULTS = {
+    "population_file": None,
+    "columns_to_keep": ["D_AMBDTO", "RECNUM"],
+    "date_columns": ["D_AMBDTO", "LEVERANCEDATO"],
+}
 
 
-def process_lpr_bes(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
-    default_columns = ["D_AMBDTO", "RECNUM"]
-    columns = columns_to_keep if columns_to_keep is not None else default_columns
+def process_lpr_bes(**kwargs: KwargsType) -> None:
     process_register_data(
         input_files=LPR_BES_FILES,
         output_file=LPR_BES_OUT,
-        population_file=None,
         schema=LPR_BES_SCHEMA,
-        date_columns=["D_AMBDTO", "LEVERANCEDATO"],
-        columns_to_keep=columns,
+        defaults=LPR_BES_DEFAULTS,
         **kwargs,
     )
+
+
+if __name__ == "__main__":
+    process_lpr_bes()

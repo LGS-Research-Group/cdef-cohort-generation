@@ -6,10 +6,13 @@ import polars as pl
 BASE_DIR = Path("/Users/tobiaskragholm/dev/TEST_RUN")
 DATA_DIR = BASE_DIR / "data"
 POPULATION_FILE = DATA_DIR / "population.parquet"
+STATIC_COHORT = DATA_DIR / "static_cohort.parquet"
+
 COHORT_FILE = DATA_DIR / "cohort.parquet"
 ISCED_FILE = DATA_DIR / "isced.parquet"
 ICD_FILE = DATA_DIR / "icd10dict.csv"
 RDAT_FILE = Path("path/to/your/uddf.rda")
+ISCED_TSV_FILE = Path("/Users/tobiaskragholm/dev/cdef-cohort-generation/data/ISCED.tsv")
 PARQUETS = "*.parquet"
 BIRTH_INCLUSION_START_YEAR = 1995
 BIRTH_INCLUSION_END_YEAR = 2020
@@ -45,10 +48,10 @@ LPR_BES_OUT = DATA_DIR / "lpr_bes" / "lpr_bes.parquet"
 LPR3_DIAGNOSER_OUT = DATA_DIR / "diagnoser" / "diagnoser.parquet"
 LPR3_KONTAKTER_OUT = DATA_DIR / "kontakter" / "kontakter.parquet"
 
-
 EVENT_DEFINITIONS = {
-    "education_change": (pl.col("EDU_LVL").diff() != 0),
-    "income_bracket_change": (pl.col("income_bracket").diff() != 0),
-    "municipality_change": (pl.col("KOM").diff() != 0),
-    # Add more event definitions as needed
+    "father_education_change": (pl.col("FAR_EDU_LVL").shift() != pl.col("FAR_EDU_LVL")),
+    "mother_education_change": (pl.col("MOR_EDU_LVL").shift() != pl.col("MOR_EDU_LVL")),
+    "father_income_change": (pl.col("FAR_PERINDKIALT_13").cast(pl.Float64).diff() != 0),
+    "mother_income_change": (pl.col("MOR_PERINDKIALT_13").cast(pl.Float64).diff() != 0),
+    "municipality_change": (pl.col("KOM").shift() != pl.col("KOM")),
 }

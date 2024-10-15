@@ -9,8 +9,8 @@ class TestEducationProcessing(unittest.TestCase):
     def test_read_isced_data(self):
         isced_data = read_isced_data()
         self.assertIsInstance(isced_data, pl.DataFrame)
-        self.assertIn("EDU_TYPE", isced_data.columns)
-        self.assertIn("EDU_LVL", isced_data.columns)
+        self.assertIn("EDU_TYPE", isced_data.collect_schema().names())
+        self.assertIn("EDU_LVL", isced_data.collect_schema().names())
 
     def test_process_education_data(self):
         # Create a sample education DataFrame

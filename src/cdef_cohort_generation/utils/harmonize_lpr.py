@@ -129,16 +129,16 @@ def combine_harmonized_data(df1: pl.LazyFrame, df2: pl.LazyFrame) -> pl.LazyFram
     pl.LazyFrame: Combined dataframe
     """
     # Get all unique columns from both dataframes
-    all_columns = set(df1.columns).union(set(df2.columns))
+    all_columns = set(df1.collect_schema().names()).union(set(df2.collect_schema().names()))
 
     # Ensure both dataframes have all columns as strings
     for col in all_columns:
-        if col not in df1.columns:
+        if col not in df1.collect_schema().names():
             df1 = df1.with_columns(pl.lit(None).cast(pl.Utf8).alias(col))
         else:
             df1 = df1.with_columns(pl.col(col).cast(pl.Utf8))
 
-        if col not in df2.columns:
+        if col not in df2.collect_schema().names():
             df2 = df2.with_columns(pl.lit(None).cast(pl.Utf8).alias(col))
         else:
             df2 = df2.with_columns(pl.col(col).cast(pl.Utf8))
@@ -153,6 +153,6 @@ def combine_harmonized_data(df1: pl.LazyFrame, df2: pl.LazyFrame) -> pl.LazyFram
     # Now attempt to convert date columns
     date_columns = ["admission_date", "outpatient_date"]
     for col in date_columns:
-        if col in combined_df.columns:
+        if col in combined_df.collect_schema().names():
             combined_df = combined_df.with_columns(parse_dates(col).alias(col))
     return combined_df
