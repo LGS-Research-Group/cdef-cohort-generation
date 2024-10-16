@@ -6,8 +6,8 @@ from typing import Any, TypeVar, cast
 
 from imohash import hashfile  # type: ignore
 
-from cdef_cohort_generation.utils import config
-from cdef_cohort_generation.utils.config import HASH_FILE_PATH
+from cdef_cohort_builder.utils import config
+from cdef_cohort_builder.utils.config import HASH_FILE_PATH
 
 T = TypeVar("T")
 

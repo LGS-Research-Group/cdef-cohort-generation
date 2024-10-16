@@ -3,7 +3,7 @@ requires = ["hatchling", "hatch-vcs", "hatch-fancy-pypi-readme"]
 build-backend = "hatchling.build"
 
 [project]
-name = "cdef_cohort_generation"
+name = "cdef_cohort_builder"
 dynamic = ["version", "readme", "urls"]
 description = "Add your description here"
 authors = [
@@ -20,7 +20,7 @@ requires-python = ">= 3.12"
 license = "MIT"
 
 [project.scripts]
-cdef-cohort-generation = "cdef_cohort_generation.main:main"
+cdef-cohort-generation = "cdef_cohort_builder.main:main"
 
 [tool.hatch.version]
 source = "vcs"
@@ -29,7 +29,7 @@ source = "vcs"
 local_scheme = "no-local-version"
 
 [tool.hatch.build.hooks.vcs]
-version-file = "src/cdef_cohort_generation/_version.py"
+version-file = "src/cdef_cohort_builder/_version.py"
 
 [tool.hatch.metadata.hooks.vcs.urls]
 "Source Code" = "https://github.com/LGS-Research-Group/cdef-cohort-generation/tree/{commit_hash}"
@@ -50,15 +50,15 @@ replacement = '**\1**:'
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/cdef_cohort_generation"]
+packages = ["src/cdef_cohort_builder"]
 
 [tool.hatch.build.targets.wheel.package-data]
-"cdef_cohort_generation" = ["mappings/*.json", ".env.example"]
+"cdef_cohort_builder" = ["mappings/*.json", ".env.example"]
 
 
 # [tool.hatch.build.targets.wheel.force-include]
-# "src/cdef_cohort_generation/mappings" = "src/cdef_cohort_generation/mappings"
-# ".env.example" = "src/cdef_cohort_generation/.env.example"
+# "src/cdef_cohort_builder/mappings" = "src/cdef_cohort_builder/mappings"
+# ".env.example" = "src/cdef_cohort_builder/.env.example"
 
 [tool.rye]
 universal = true

@@ -1,6 +1,6 @@
 import polars as pl
 
-from cdef_cohort_generation.utils.date import parse_dates
+from cdef_cohort_builder.utils.date import parse_dates
 
 
 def integrate_lpr2_components(

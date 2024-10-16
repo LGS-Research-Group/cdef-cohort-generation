@@ -1,11 +1,11 @@
 import polars as pl
 
-from cdef_cohort_generation.utils.config import (
+from cdef_cohort_builder.utils.config import (
     LPR_BES_FILES,
     LPR_BES_OUT,
 )
-from cdef_cohort_generation.utils.register import process_register_data
-from cdef_cohort_generation.utils.types import KwargsType
+from cdef_cohort_builder.utils.register import process_register_data
+from cdef_cohort_builder.utils.types import KwargsType
 
 LPR_BES_SCHEMA = {
     "D_AMBDTO": pl.Date,  # Dato for ambulantbesøg

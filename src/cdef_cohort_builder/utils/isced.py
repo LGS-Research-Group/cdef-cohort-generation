@@ -2,8 +2,8 @@ import json
 
 import polars as pl
 
-from cdef_cohort_generation.logging_config import log
-from cdef_cohort_generation.utils.config import ISCED_FILE, ISCED_MAPPING_FILE
+from cdef_cohort_builder.logging_config import log
+from cdef_cohort_builder.utils.config import ISCED_FILE, ISCED_MAPPING_FILE
 
 
 def read_isced_data() -> pl.LazyFrame:

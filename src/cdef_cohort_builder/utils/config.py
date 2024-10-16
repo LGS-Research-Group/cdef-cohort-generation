@@ -1,4 +1,4 @@
-from cdef_cohort_generation.settings import settings
+from cdef_cohort_builder.settings import settings
 
 # Use settings directly
 BASE_DIR = settings.BASE_DIR

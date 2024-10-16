@@ -5,10 +5,10 @@ from typing import Any
 
 import polars as pl
 
-from cdef_cohort_generation.logging_config import logger
-from cdef_cohort_generation.utils.date import extract_date_from_filename, parse_dates
-from cdef_cohort_generation.utils.isced import read_isced_data
-from cdef_cohort_generation.utils.types import KwargsType
+from cdef_cohort_builder.logging_config import logger
+from cdef_cohort_builder.utils.date import extract_date_from_filename, parse_dates
+from cdef_cohort_builder.utils.isced import read_isced_data
+from cdef_cohort_builder.utils.types import KwargsType
 
 
 def process_register_data(

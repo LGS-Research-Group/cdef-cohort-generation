@@ -1,6 +1,6 @@
 import polars as pl
 
-from cdef_cohort_generation.utils.config import ICD_FILE
+from cdef_cohort_builder.utils.config import ICD_FILE
 
 
 def read_icd_descriptions() -> pl.LazyFrame:

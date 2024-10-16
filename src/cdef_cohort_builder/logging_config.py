@@ -27,7 +27,7 @@ class RichLogger:
                     show_time=False,
                     show_path=False,
                 ),
-                logging.FileHandler(log_file, mode='w', encoding='utf-8'),
+                logging.FileHandler(log_file, mode="w", encoding="utf-8"),
             ],
         )
 
@@ -58,9 +58,9 @@ def setup_logging() -> RichLogger:
 
     # Create a timestamp for the log file name
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_file = log_dir / f"cdef_cohort_generation_{timestamp}.log"
+    log_file = log_dir / f"cdef_cohort_builder_{timestamp}.log"
 
-    logger = RichLogger("cdef_cohort_generation", log_file)
+    logger = RichLogger("cdef_cohort_builder", log_file)
 
     # Log the start of the logging session
     logger.info(f"Logging session started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")

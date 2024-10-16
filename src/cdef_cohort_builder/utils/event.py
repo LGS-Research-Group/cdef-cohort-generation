@@ -1,6 +1,6 @@
 import polars as pl
 
-from cdef_cohort_generation.logging_config import log
+from cdef_cohort_builder.logging_config import log
 
 
 def identify_events(df: pl.LazyFrame, event_definitions: dict[str, pl.Expr]) -> pl.LazyFrame:

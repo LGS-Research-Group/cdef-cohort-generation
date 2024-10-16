@@ -1,11 +1,11 @@
 import polars as pl
 
-from cdef_cohort_generation.utils.config import (
+from cdef_cohort_builder.utils.config import (
     LPR3_DIAGNOSER_FILES,
     LPR3_DIAGNOSER_OUT,
 )
-from cdef_cohort_generation.utils.register import process_register_data
-from cdef_cohort_generation.utils.types import KwargsType
+from cdef_cohort_builder.utils.register import process_register_data
+from cdef_cohort_builder.utils.types import KwargsType
 
 LPR3_DIAGNOSER_SCHEMA = {
     "DW_EK_KONTAKT": pl.Utf8,

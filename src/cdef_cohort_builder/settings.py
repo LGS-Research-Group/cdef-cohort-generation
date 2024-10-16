@@ -173,7 +173,7 @@ class Settings(BaseSettings):
     def get_mapping_path(filename: str) -> Path:
         """Get the path to a mapping file."""
         with pkg_resources.as_file(
-            pkg_resources.files("cdef_cohort_generation").joinpath("..", "..", "mappings", filename)
+            pkg_resources.files("cdef_cohort_builder").joinpath("..", "..", "mappings", filename)
         ) as path:
             return Path(path)
 

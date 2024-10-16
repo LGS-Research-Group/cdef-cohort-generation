@@ -3,9 +3,9 @@ from pathlib import Path
 
 import polars as pl
 
-from cdef_cohort_generation.logging_config import log
-from cdef_cohort_generation.population import main as generate_population
-from cdef_cohort_generation.registers import (
+from cdef_cohort_builder.logging_config import log
+from cdef_cohort_builder.population import main as generate_population
+from cdef_cohort_builder.registers import (
     process_akm,
     process_bef,
     process_idan,
@@ -17,7 +17,7 @@ from cdef_cohort_generation.registers import (
     process_lpr_diag,
     process_uddf,
 )
-from cdef_cohort_generation.utils.config import (
+from cdef_cohort_builder.utils.config import (
     AKM_OUT,
     BEF_OUT,
     COHORT_FILE,
@@ -33,15 +33,15 @@ from cdef_cohort_generation.utils.config import (
     STATIC_COHORT,
     UDDF_OUT,
 )
-from cdef_cohort_generation.utils.event import identify_events
-from cdef_cohort_generation.utils.harmonize_lpr import (
+from cdef_cohort_builder.utils.event import identify_events
+from cdef_cohort_builder.utils.harmonize_lpr import (
     combine_harmonized_data,
     harmonize_health_data,
     integrate_lpr2_components,
     integrate_lpr3_components,
 )
-from cdef_cohort_generation.utils.hash_utils import process_with_hash_check
-from cdef_cohort_generation.utils.icd import apply_scd_algorithm
+from cdef_cohort_builder.utils.hash_utils import process_with_hash_check
+from cdef_cohort_builder.utils.icd import apply_scd_algorithm
 
 # Define the path for the central hash file
 HASH_FILE_PATH = Path("data/hash_file.json")
