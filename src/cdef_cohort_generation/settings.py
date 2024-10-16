@@ -1,9 +1,10 @@
 import importlib.resources as pkg_resources
+import sys
 from pathlib import Path
 from typing import Any
 
 import polars as pl
-from pydantic import computed_field
+from pydantic import ValidationError, computed_field, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -176,6 +177,52 @@ class Settings(BaseSettings):
     def ISCED_MAPPING_FILE(self) -> Path:
         return self.get_mapping_path("isced.json")
 
+    @validator("BASE_DIR", "REGISTER_BASE_DIR", pre=True)
+    def validate_directory(cls, v: Any) -> Path:
+        path = Path(v)
+        if not path.exists():
+            raise ValueError(f"Directory does not exist: {path}")
+        return path
 
-# Create a global instance of the Settings
-settings = Settings()
+    @validator(
+        "BEF_FILES",
+        "UDDF_FILES",
+        "LPR_ADM_FILES",
+        "LPR_DIAG_FILES",
+        "LPR_BES_FILES",
+        "LPR3_DIAGNOSER_FILES",
+        "LPR3_KONTAKTER_FILES",
+        "AKM_FILES",
+        "IDAN_FILES",
+        "IND_FILES",
+        pre=True,
+    )
+    def validate_files_exist(cls, v: Any) -> Path:
+        path = Path(v)
+        if not path.parent.exists():
+            raise ValueError(f"Parent directory does not exist for: {path}")
+        if not list(path.parent.glob(path.name)):
+            raise ValueError(f"No files found matching pattern: {path}")
+        return path
+
+
+# Create a global instance of the Settings with error handling
+try:
+    settings = Settings()
+except ValidationError as e:
+    print("Error in configuration:")
+    for error in e.errors():
+        field = ".".join(str(loc) for loc in error["loc"]) if error["loc"] else "Unknown field"
+        message = error["msg"]
+        print(f"- {field}: {message}")
+    print("\nPlease check your configuration settings and ensure all required directories exist.")
+    print("Configuration is typically set in the .env file or environment variables.")
+    sys.exit(1)
+except Exception as e:
+    print(f"An unexpected error occurred while loading configuration: {str(e)}")
+    sys.exit(1)
+
+
+# Optional: You can add a function to check if settings loaded successfully
+def check_settings() -> bool:
+    return settings is not None

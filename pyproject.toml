@@ -35,7 +35,7 @@ packages = ["src/cdef_cohort_generation"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "mappings" = "mappings"
-"example.env" = "example.env"
+".env.example" = ".env.example"
 
 
 [tool.rye.scripts]

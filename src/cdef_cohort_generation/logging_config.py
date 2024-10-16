@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
@@ -17,8 +18,8 @@ class RichLogger:
         # Setup logging
         logging.basicConfig(
             level="NOTSET",
-            format="%(message)s",
-            datefmt="[%X]",
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            datefmt="[%Y-%m-%d %H:%M:%S]",
             handlers=[
                 RichHandler(
                     console=self.console,
@@ -26,11 +27,7 @@ class RichLogger:
                     show_time=False,
                     show_path=False,
                 ),
-                RichHandler(
-                    console=Console(file=Path.open(log_file, "a", encoding="utf-8")),
-                    show_time=True,
-                    show_path=True,
-                ),
+                logging.FileHandler(log_file, mode='w', encoding='utf-8'),
             ],
         )
 
@@ -58,8 +55,18 @@ class RichLogger:
 def setup_logging() -> RichLogger:
     log_dir = Path("logs")
     log_dir.mkdir(exist_ok=True)
-    log_file = log_dir / "profile_data.log"
-    return RichLogger("profile_data", log_file)
+
+    # Create a timestamp for the log file name
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = log_dir / f"cdef_cohort_generation_{timestamp}.log"
+
+    logger = RichLogger("cdef_cohort_generation", log_file)
+
+    # Log the start of the logging session
+    logger.info(f"Logging session started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    logger.info(f"Log file: {log_file}")
+
+    return logger
 
 
 logger = setup_logging()
