@@ -1,11 +1,11 @@
 import polars as pl
 
-from cdef_cohort_generation.utils import (
+from cdef_cohort_generation.utils.config import (
     LPR3_KONTAKTER_FILES,
     LPR3_KONTAKTER_OUT,
-    KwargsType,
-    process_register_data,
 )
+from cdef_cohort_generation.utils.register import process_register_data
+from cdef_cohort_generation.utils.types import KwargsType
 
 LPR3_KONTAKTER_SCHEMA = {
     "SORENHED_IND": pl.Utf8,

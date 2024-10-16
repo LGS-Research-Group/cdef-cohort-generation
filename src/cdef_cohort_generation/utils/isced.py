@@ -13,7 +13,7 @@ def read_isced_data() -> pl.LazyFrame:
             log("Reading ISCED data from existing parquet file...")
             return pl.scan_parquet(ISCED_FILE)
 
-        log("Processing ISCED data from TSV-like file...")
+        log("Processing ISCED mappings from json file...")
 
         # Read the JSON file
         with open(ISCED_MAPPING_FILE) as json_file:

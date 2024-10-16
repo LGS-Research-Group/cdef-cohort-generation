@@ -1,12 +1,12 @@
 import polars as pl
 
-from cdef_cohort_generation.utils import (
+from cdef_cohort_generation.utils.config import (
     POPULATION_FILE,
     UDDF_FILES,
     UDDF_OUT,
-    KwargsType,
-    process_register_data,
 )
+from cdef_cohort_generation.utils.register import process_register_data
+from cdef_cohort_generation.utils.types import KwargsType
 
 UDDF_SCHEMA = {
     "PNR": pl.Utf8,

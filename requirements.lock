@@ -66,6 +66,8 @@ htmltools==0.5.3
     # via great-tables
 idna==3.10
     # via requests
+imohash==1.1.0
+    # via cdef-cohort-generation
 importlib-metadata==8.5.0
     # via great-tables
 importlib-resources==6.4.5
@@ -88,6 +90,7 @@ matplotlib==3.9.2
 mdurl==0.1.2
     # via markdown-it-py
 mmh3==4.1.0
+    # via imohash
     # via pyiceberg
 narwhals==1.9.2
     # via altair
@@ -183,6 +186,8 @@ tzdata==2024.2
     # via polars
 urllib3==2.2.3
     # via requests
+varint==1.0.2
+    # via imohash
 xlsx2csv==0.8.3
     # via polars
 xlsxwriter==3.2.0

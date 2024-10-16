@@ -17,7 +17,7 @@ from cdef_cohort_generation.registers import (
     process_lpr_diag,
     process_uddf,
 )
-from cdef_cohort_generation.utils import (
+from cdef_cohort_generation.utils.config import (
     AKM_OUT,
     BEF_OUT,
     COHORT_FILE,
@@ -32,13 +32,19 @@ from cdef_cohort_generation.utils import (
     POPULATION_FILE,
     STATIC_COHORT,
     UDDF_OUT,
-    apply_scd_algorithm,
+)
+from cdef_cohort_generation.utils.event import identify_events
+from cdef_cohort_generation.utils.harmonize_lpr import (
     combine_harmonized_data,
     harmonize_health_data,
-    identify_events,
     integrate_lpr2_components,
     integrate_lpr3_components,
 )
+from cdef_cohort_generation.utils.hash_utils import process_with_hash_check
+from cdef_cohort_generation.utils.icd import apply_scd_algorithm
+
+# Define the path for the central hash file
+HASH_FILE_PATH = Path("data/hash_file.json")
 
 
 def log_lazyframe_info(name: str, df: pl.LazyFrame) -> None:
@@ -60,11 +66,6 @@ def log_lazyframe_info(name: str, df: pl.LazyFrame) -> None:
         percentage = (null_count / total_rows) * 100
         log(f"  {col}: {null_count} ({percentage:.2f}%)")
 
-    # Fetch a sample of data, handling the case where 'month' might not be present
-    sample_data = df.fetch(5)
-    log(f"Sample data:\n{sample_data}")
-    log("-------------------")
-
 
 def identify_severe_chronic_disease() -> pl.LazyFrame:
     """Process health data and identify children with severe chronic diseases.
@@ -74,12 +75,21 @@ def identify_severe_chronic_disease() -> pl.LazyFrame:
 
     """
     # Step 1: Process health register data
-    process_lpr_adm(columns_to_keep=["PNR", "C_ADIAG", "RECNUM", "D_INDDTO"])
-    process_lpr_diag(columns_to_keep=["RECNUM", "C_DIAG", "C_TILDIAG"])
-    process_lpr_bes(columns_to_keep=["D_AMBDTO", "RECNUM"])
-    process_lpr3_diagnoser(columns_to_keep=["DW_EK_KONTAKT", "diagnosekode"])
-    process_lpr3_kontakter(
-        columns_to_keep=["DW_EK_KONTAKT", "CPR", "aktionsdiagnose", "dato_start"]
+    process_with_hash_check(
+        process_lpr_adm, columns_to_keep=["PNR", "C_ADIAG", "RECNUM", "D_INDDTO"]
+    )
+
+    process_with_hash_check(process_lpr_diag, columns_to_keep=["RECNUM", "C_DIAG", "C_TILDIAG"])
+
+    process_with_hash_check(process_lpr_bes, columns_to_keep=["D_AMBDTO", "RECNUM"])
+
+    process_with_hash_check(
+        process_lpr3_diagnoser, columns_to_keep=["DW_EK_KONTAKT", "diagnosekode"]
+    )
+
+    process_with_hash_check(
+        process_lpr3_kontakter,
+        columns_to_keep=["DW_EK_KONTAKT", "CPR", "aktionsdiagnose", "dato_start"],
     )
 
     # Read processed health data
@@ -91,54 +101,17 @@ def identify_severe_chronic_disease() -> pl.LazyFrame:
     lpr3_diagnoser = pl.scan_parquet(LPR3_DIAGNOSER_OUT)
     lpr3_kontakter = pl.scan_parquet(LPR3_KONTAKTER_OUT)
 
-    # Log info for individual LazyFrames
-    # log_lazyframe_info("LPR_ADM", lpr_adm)
-    # log_lazyframe_info("LPR_DIAG", lpr_diag)
-    # log_lazyframe_info("LPR_BES", lpr_bes)
-    # log_lazyframe_info("LPR3_DIAGNOSER", lpr3_diagnoser)
-    # log_lazyframe_info("LPR3_KONTAKTER", lpr3_kontakter)
-
     # Combine LPR2 data
     lpr2 = integrate_lpr2_components(lpr_adm, lpr_diag, lpr_bes)
-    # Log info for combined LPR2 data
-    # log_lazyframe_info("Combined LPR2", lpr2)
 
     # Combine LPR3 data
     lpr3 = integrate_lpr3_components(lpr3_kontakter, lpr3_diagnoser)
-    # Log info for combined LPR3 data
-    # log_lazyframe_info("Combined LPR3", lpr3)
 
     # Step 5: Harmonize and combine all health data
     lpr2_harmonized, lpr3_harmonized = harmonize_health_data(lpr2, lpr3)
 
-    # Log info for harmonized data
-    # log_lazyframe_info("Harmonized LPR2", lpr2_harmonized)
-    # log_lazyframe_info("Harmonized LPR3", lpr3_harmonized)
-
     # Combine harmonized data
     health_data = combine_harmonized_data(lpr2_harmonized, lpr3_harmonized)
-
-    # log("Combined health data schema:")
-    # log(str(health_data.collect_schema()))
-
-    # log("Sample of combined health data:")
-    # sample_data = health_data.fetch(5)
-    # log(str(sample_data))
-
-    # log("Column types:")
-    # for col in sample_data.columns:
-    #     log(f"{col}: {sample_data[col].dtype}")
-
-    # # Log info for final combined health data
-    # log_lazyframe_info("Combined Health Data", health_data)
-
-    # # Step 6: Apply SCD algorithm
-    # columns_to_check = [
-    #     "primary_diagnosis",
-    #     "secondary_diagnosis",
-    #     "diagnosis",
-    # ]
-    # scd_data = apply_scd_algorithm(health_data, columns_to_check)
 
     diagnosis_date_mapping = {
         "primary_diagnosis": "admission_date",
@@ -146,9 +119,6 @@ def identify_severe_chronic_disease() -> pl.LazyFrame:
         "diagnosis": "outpatient_date",
     }
     scd_data = apply_scd_algorithm(health_data, diagnosis_date_mapping)
-
-    # Debug: Log column names after SCD algorithm
-    # log(f"SCD data columns: {scd_data.collect_schema().names()}")
 
     # Check if patient_id exists
     if "patient_id" not in scd_data.collect_schema().names():
@@ -211,11 +181,11 @@ def process_longitudinal_data() -> pl.LazyFrame:
     }
 
     # Process registers that contain longitudinal data
-    process_bef(**common_params)
-    process_akm(**common_params)
-    process_ind(**common_params)
-    process_idan(**common_params)
-    process_uddf(**common_params)
+    process_with_hash_check(process_bef, **common_params)
+    process_with_hash_check(process_akm, **common_params)
+    process_with_hash_check(process_ind, **common_params)
+    process_with_hash_check(process_idan, **common_params)
+    process_with_hash_check(process_uddf, **common_params)
 
     # Combine longitudinal data from different registers
     longitudinal_registers = [BEF_OUT, AKM_OUT, IND_OUT, IDAN_OUT, UDDF_OUT]

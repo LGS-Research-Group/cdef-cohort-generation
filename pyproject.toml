@@ -14,6 +14,7 @@ dependencies = [
     "rich>=13.9.2",
     "pydantic[mypy]>=2.9.2",
     "pydantic-settings>=2.5.2",
+    "imohash>=1.1.0",
 ]
 requires-python = ">= 3.12"
 license = "MIT"

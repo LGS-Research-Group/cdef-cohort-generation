@@ -1,11 +1,11 @@
 import polars as pl
 
-from cdef_cohort_generation.utils import (
+from cdef_cohort_generation.utils.config import (
     LPR_DIAG_FILES,
     LPR_DIAG_OUT,
-    KwargsType,
-    process_register_data,
 )
+from cdef_cohort_generation.utils.register import process_register_data
+from cdef_cohort_generation.utils.types import KwargsType
 
 LPR_DIAG_SCHEMA = {
     "C_DIAG": pl.Utf8,  # Diagnosekode

@@ -56,6 +56,11 @@ class Settings(BaseSettings):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
+    def HASH_FILE_PATH(self) -> Path:
+        return self.DATA_DIR / "hash_file.json"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
     def ISCED_FILE(self) -> Path:
         return self.DATA_DIR / "isced.parquet"
 

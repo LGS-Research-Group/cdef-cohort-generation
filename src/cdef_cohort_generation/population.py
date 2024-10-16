@@ -2,13 +2,13 @@ from pathlib import Path
 
 import polars as pl
 
-from cdef_cohort_generation.utils import (
+from cdef_cohort_generation.utils.config import (
     BEF_FILES,
     BIRTH_INCLUSION_END_YEAR,
     BIRTH_INCLUSION_START_YEAR,
     POPULATION_FILE,
-    parse_dates,
 )
+from cdef_cohort_generation.utils.date import parse_dates
 
 
 def main() -> None:

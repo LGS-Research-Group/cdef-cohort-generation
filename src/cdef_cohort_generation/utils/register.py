@@ -23,19 +23,12 @@ def process_register_data(
     Args:
     input_files (Path): Path to input parquet files.
     output_file (Path): Path to save the output parquet file.
-    population_file (Path): Path to the population parquet file.
     schema (Dict[str, pl.DataType]): Schema for the input data.
-    date_columns (Optional[List[str]]): List of column names to parse as dates.
-    columns_to_keep (Optional[List[str]]): List of columns to keep in the final output.
-    join_on (str | List[str]): Column(s) to join on. Default is "PNR".
-    join_parents_only (bool): If True, only join on FAR_ID and MOR_ID. Default is False.
-    register_name (str): Name of the register being processed. Default is "".
-    longitudinal (bool): If True, treat data as longitudinal
-    and extract year (and month if present) from filename. Default is False.
+    defaults (dict[str, Any]): Default parameters for processing.
+    **kwargs: Additional keyword arguments.
 
     Returns:
     None
-
     """
     # Merge defaults with provided kwargs, prioritizing kwargs
     params = {**defaults, **kwargs}
@@ -68,7 +61,16 @@ def process_register_data(
         data_frames = []
         for file in files:
             logger.info(f"Processing {file}")
-            df = pl.scan_parquet(file)
+            df = pl.scan_parquet(file, allow_missing_columns=True)
+
+            # Get the columns that exist in this file
+            existing_columns = set(df.columns)
+
+            # If columns_to_keep is specified and not None, only keep columns that exist
+            if columns_to_keep is not None:
+                columns_to_keep = [col for col in columns_to_keep if col in existing_columns]
+                df = df.select(columns_to_keep)
+
             date_info = extract_date_from_filename(Path(file).stem)
             if "year" in date_info:
                 df = df.with_columns(pl.lit(date_info["year"]).alias("year"))
@@ -84,14 +86,19 @@ def process_register_data(
     else:
         data = pl.scan_parquet(files, allow_missing_columns=True)
 
+        # Get the columns that exist in the data
+        existing_columns = set(data.columns)
+
+        # If columns_to_keep is specified and not None, only keep columns that exist
+        if columns_to_keep is not None:
+            columns_to_keep = [col for col in columns_to_keep if col in existing_columns]
+            data = data.select(columns_to_keep)
+
     # Parse date columns if specified
     if date_columns:
         for col in date_columns:
-            data = data.with_columns(parse_dates(col).alias(col))
-
-    # Select specific columns if specified
-    if columns_to_keep:
-        data = data.select(columns_to_keep)
+            if col in data.columns:
+                data = data.with_columns(parse_dates(col).alias(col))
 
     # Special handling for UDDF register
     if register_name.lower() == "uddf":
@@ -112,10 +119,7 @@ def process_register_data(
         if join_parents_only:
             # For father's data
             father_data = data.select(
-                [
-                    pl.col(col).alias(f"FAR_{col}" if col != join_on else col)
-                    for col in data.collect_schema().names()
-                ]
+                [pl.col(col).alias(f"FAR_{col}" if col != join_on else col) for col in data.columns]
             )
             result = result.join(
                 father_data,
@@ -126,10 +130,7 @@ def process_register_data(
 
             # For mother's data
             mother_data = data.select(
-                [
-                    pl.col(col).alias(f"MOR_{col}" if col != join_on else col)
-                    for col in data.collect_schema().names()
-                ]
+                [pl.col(col).alias(f"MOR_{col}" if col != join_on else col) for col in data.columns]
             )
             result = result.join(
                 mother_data,
@@ -148,3 +149,5 @@ def process_register_data(
 
     # Collect and save the result
     result.collect().write_parquet(output_file)
+
+    logger.info(f"Processed {register_name} data and saved to {output_file}")

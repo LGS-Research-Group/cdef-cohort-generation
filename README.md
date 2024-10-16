@@ -75,6 +75,9 @@ pytest tests/
 - Improve logging and error handling
 - Add descriptive plots
 - Refactor code for better organization and efficiency
+- LPR3 diagnoser / LPR3 kontakter directory names (OBS. convert script)
+- Mapping and .env file not included in repo
+- SENR not available in early years for AKM
 
 ## License
 
