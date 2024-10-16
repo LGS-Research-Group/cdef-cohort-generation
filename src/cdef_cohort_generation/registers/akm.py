@@ -27,7 +27,7 @@ AKM_DEFAULTS = {
 }
 
 
-def process_akm(columns_to_keep: list[str] | None = None, **kwargs: KwargsType) -> None:
+def process_akm(**kwargs: KwargsType) -> None:
     """Process AKM data, join with population data, and save the result."""
     process_register_data(
         input_files=AKM_FILES,

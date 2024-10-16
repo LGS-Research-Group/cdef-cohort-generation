@@ -1,0 +1,19 @@
+{
+  "0": "Ikke i AKM",
+  "110": "Selvstændige",
+  "111": "Selvstændig, 10 eller flere ansatte",
+  "112": "Selvstændig, 5 - 9 ansatte",
+  "113": "Selvstændig, 1 - 4 ansatte",
+  "114": "Selvstændig, ingen ansatte",
+  "120": "Medarbejdende ægtefælle",
+  "130": "Lønmodtager",
+  "210": "Arbejdsløs mindst halvdelen af året",
+  "220": "Modtager af sygedagpenge, uddannelsesgodtgørelse, orlovsydelser mm.",
+  "310": "Under uddannelse, inkl.skoleelever min. 15 år",
+  "321": "Førtidspensionister",
+  "322": "Folkepensionister",
+  "323": "Efterlønsmodtager mv.",
+  "330": "Kontanthjælpsmodtager",
+  "410": "Andre",
+  "420": "Børn under 15 år ultimo året"
+}

@@ -40,10 +40,8 @@ from cdef_cohort_generation.utils import (
     integrate_lpr3_components,
 )
 
-# warnings.filterwarnings("ignore", category=pl.PerformanceWarning)
 
-
-def log_lazyframe_info(name: str, df: pl.LazyFrame):
+def log_lazyframe_info(name: str, df: pl.LazyFrame) -> None:
     schema = df.collect_schema()
     total_rows = df.select(pl.count()).collect()[0, 0]
 
@@ -213,7 +211,7 @@ def process_longitudinal_data() -> pl.LazyFrame:
     }
 
     # Process registers that contain longitudinal data
-    process_bef(**common_params, columns_to_keep=[])
+    process_bef(**common_params)
     process_akm(**common_params)
     process_ind(**common_params)
     process_idan(**common_params)

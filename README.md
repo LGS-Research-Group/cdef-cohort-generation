@@ -1,8 +1,12 @@
 # cdef-cohort-generation
 
-This Python project is designed to process and analyze data from Danish national registers for an observational study investigating the long-term impact of severe chronic diseases in children on parental income trajectories in Denmark.
+This Python project is part of a research study conducted by the [Center for Data og Effektforskning (CDEF)](https://www.rigshospitalet.dk/maryelizabethshospital/center-for-data-og-effektforskning/Sider/default.aspx) at Mary Elizabeths Hospital, Denmark. The project aims to generate cohorts for an observational study investigating the long-term impact of severe chronic diseases in children on parental income trajectories in Denmark.
+
+The package has been built in such a way that it can be easily extended to include additional registers and data sources. The project is designed to be modular and flexible, allowing for easy integration of new data sources and registers. And also to be easily adaptable to other research projects that require processing and analysis of Danish national registers. But this package focuses on creating the initial cohort/population for the study.
 
 ## Project Overview
+
+This project is designed to process and analyze data from Danish national registers for an observational study investigating the long-term impact of severe chronic diseases in children on parental income trajectories in Denmark.
 
 The primary objectives of this study are:
 
@@ -37,6 +41,24 @@ To run the main processing script:
 ```
 python -m cdef_cohort_generation.main
 ```
+
+## Registers implemented
+
+### Registers from Sundhedsdatastyrelsen
+
+- LPR_ADM: Administrative data from hospitals (LPR2)
+- LPR_DIAG: Diagnoses from hospitals (LPR2)
+- LPR_BES: Outpatient visits from hospitals (LPR2)
+- LPR_KONTAKER: Contacts with hospitals (LPR3)
+- LPR_DIAGNOSER: Diagnoses from hospitals (LPR3)
+
+### Registers from Statistics Denmark
+
+- BEF: Population data
+- IND: Income data
+- IDAN: IDA employment data
+- UDDF: Education data
+- AKM: Work classification module
 
 ## Testing
 

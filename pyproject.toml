@@ -5,7 +5,12 @@ description = "Add your description here"
 authors = [
     { name = "Tobias Kragholm", email = "50784887+tkragholm@users.noreply.github.com" },
 ]
-dependencies = ["polars[all]>=1.9.0", "rich>=13.9.2", "pyreadr>=0.5.2"]
+dependencies = [
+    "polars[all]>=1.9.0",
+    "rich>=13.9.2",
+    "pydantic[mypy]>=2.9.2",
+    "pydantic-settings>=2.5.2",
+]
 readme = "README.md"
 requires-python = ">= 3.12"
 license = "MIT"
@@ -18,6 +23,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.rye]
+universal = true                                     # this ensure platform compatibility for lock files
 managed = true
 dev-dependencies = ["mypy>=1.11.2", "pytest>=8.3.3"]
 
@@ -26,6 +32,11 @@ allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cdef_cohort_generation"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"mappings" = "mappings"
+"example.env" = "example.env"
+
 
 [tool.rye.scripts]
 test = "pytest tests/"
@@ -40,6 +51,7 @@ fix = true
 select = ["E", "B", "F", "UP", "I001", "T203"]
 
 [tool.mypy]
+plugins = ["pydantic.mypy"]
 # Enable strict mode (enables a combination of options listed below)
 strict = true
 
@@ -78,3 +90,9 @@ warn_return_any = true
 
 # Disable unused imports and unused variables (optional)
 check_untyped_defs = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+warn_untyped_fields = true

@@ -1,8 +1,9 @@
+import json
 
 import polars as pl
 
 from cdef_cohort_generation.logging_config import log
-from cdef_cohort_generation.utils.config import ISCED_FILE, ISCED_TSV_FILE
+from cdef_cohort_generation.utils.config import ISCED_FILE, ISCED_MAPPING_FILE
 
 
 def read_isced_data() -> pl.LazyFrame:
@@ -14,22 +15,23 @@ def read_isced_data() -> pl.LazyFrame:
 
         log("Processing ISCED data from TSV-like file...")
 
-        # Read the TSV-like file
-        isced_data = pl.read_csv(
-            ISCED_TSV_FILE,
-            separator="=",
-            has_header=False,
-            new_columns=["HFAUDD", "ISCED_LEVEL"],
-            skip_rows=0,
-            truncate_ragged_lines=True
+        # Read the JSON file
+        with open(ISCED_MAPPING_FILE) as json_file:
+            isced_data = json.load(json_file)
+
+        # Convert the JSON data to a Polars DataFrame
+        isced_df = pl.DataFrame(
+            [{"HFAUDD": key, "EDU_LVL": value} for key, value in isced_data.items()]
         )
 
-        # Process the data, explicitly casting to strings
+        # Process the data
         isced_final = (
-            isced_data.with_columns([
-                pl.col("HFAUDD").cast(pl.Utf8).str.strip_chars("'"),
-                pl.col("ISCED_LEVEL").cast(pl.Utf8).str.strip_chars("'").alias("EDU_LVL"),
-            ])
+            isced_df.with_columns(
+                [
+                    pl.col("HFAUDD").cast(pl.Utf8),
+                    pl.col("EDU_LVL").cast(pl.Utf8),
+                ]
+            )
             .unique()
             .select(["HFAUDD", "EDU_LVL"])
         )

@@ -7,7 +7,7 @@
 #   all-features: false
 #   with-sources: false
 #   generate-hashes: false
-#   universal: false
+#   universal: true
 
 -e file:.
 adbc-driver-manager==1.2.0
@@ -26,12 +26,17 @@ babel==2.16.0
     # via great-tables
 certifi==2024.8.30
     # via requests
+cffi==1.17.1 ; platform_python_implementation == 'CPython' and sys_platform == 'win32'
+    # via gevent
 charset-normalizer==3.4.0
     # via requests
 click==8.1.7
     # via pyiceberg
 cloudpickle==3.0.0
     # via polars
+colorama==0.4.6 ; sys_platform == 'win32' or platform_system == 'Windows'
+    # via click
+    # via pytest
 commonmark==0.9.1
     # via great-tables
 connectorx==0.3.3
@@ -55,8 +60,9 @@ gevent==24.2.1
     # via polars
 great-tables==0.13.0
     # via polars
-greenlet==3.1.1
+greenlet==3.1.1 ; (platform_machine != 'AMD64' and platform_machine != 'WIN32' and platform_machine != 'aarch64' and platform_machine != 'amd64' and platform_machine != 'ppc64le' and platform_machine != 'win32' and platform_machine != 'x86_64' and platform_python_implementation == 'CPython') or (python_full_version < '3.13' and platform_machine == 'AMD64') or (python_full_version < '3.13' and platform_machine == 'WIN32') or (python_full_version < '3.13' and platform_machine == 'aarch64') or (python_full_version < '3.13' and platform_machine == 'amd64') or (python_full_version < '3.13' and platform_machine == 'ppc64le') or (python_full_version < '3.13' and platform_machine == 'win32') or (python_full_version < '3.13' and platform_machine == 'x86_64') or (python_full_version >= '3.13' and platform_python_implementation == 'CPython')
     # via gevent
+    # via sqlalchemy
 htmltools==0.5.3
     # via great-tables
 idna==3.10
@@ -111,7 +117,6 @@ pandas==2.2.3
     # via adbc-driver-manager
     # via adbc-driver-sqlite
     # via polars
-    # via pyreadr
 pillow==10.4.0
     # via matplotlib
 pluggy==1.5.0
@@ -124,11 +129,17 @@ pyarrow==17.0.0
     # via deltalake
     # via fastexcel
     # via polars
+pycparser==2.22 ; platform_python_implementation == 'CPython' and sys_platform == 'win32'
+    # via cffi
 pydantic==2.9.2
+    # via cdef-cohort-generation
     # via polars
+    # via pydantic-settings
     # via pyiceberg
 pydantic-core==2.23.4
     # via pydantic
+pydantic-settings==2.5.2
+    # via cdef-cohort-generation
 pygments==2.18.0
     # via rich
 pyiceberg==0.7.1
@@ -136,13 +147,13 @@ pyiceberg==0.7.1
 pyparsing==3.1.4
     # via matplotlib
     # via pyiceberg
-pyreadr==0.5.2
-    # via cdef-cohort-generation
 pytest==8.3.3
 python-dateutil==2.9.0.post0
     # via matplotlib
     # via pandas
     # via strictyaml
+python-dotenv==1.0.1
+    # via pydantic-settings
 pytz==2024.2
     # via pandas
 referencing==0.35.1
@@ -180,6 +191,7 @@ typing-extensions==4.12.2
     # via sqlalchemy
 tzdata==2024.2
     # via pandas
+    # via polars
 urllib3==2.2.3
     # via requests
 xlsx2csv==0.8.3
