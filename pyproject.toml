@@ -1,6 +1,10 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs", "hatch-fancy-pypi-readme"]
+build-backend = "hatchling.build"
+
 [project]
 name = "cdef_cohort_generation"
-version = "0.1.0"
+dynamic = ["version", "readme", "urls"]
 description = "Add your description here"
 authors = [
     { name = "Tobias Kragholm", email = "50784887+tkragholm@users.noreply.github.com" },
@@ -11,21 +15,26 @@ dependencies = [
     "pydantic[mypy]>=2.9.2",
     "pydantic-settings>=2.5.2",
 ]
-readme = "README.md"
 requires-python = ">= 3.12"
 license = "MIT"
 
 [project.scripts]
 cdef-cohort-generation = "cdef_cohort_generation.main:main"
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+[tool.hatch.version]
+source = "vcs"
 
-[tool.rye]
-universal = true                                     # this ensure platform compatibility for lock files
-managed = true
-dev-dependencies = ["mypy>=1.11.2", "pytest>=8.3.3"]
+[tool.hatch.metadata.hooks.fancy-pypi-readme]
+content-type = "text/markdown"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.fragments]]
+path = "README.md"
+
+[[tool.hatch.metadata.hooks.fancy-pypi-readme.substitutions]]
+pattern = '\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]'
+replacement = '**\1**:'
+
+[tool.hatch.metadata.hooks.vcs]
 
 [tool.hatch.metadata]
 allow-direct-references = true
@@ -37,6 +46,15 @@ packages = ["src/cdef_cohort_generation"]
 "mappings" = "mappings"
 ".env.example" = ".env.example"
 
+[tool.rye]
+universal = true
+managed = true
+dev-dependencies = [
+    "mypy>=1.11.2",
+    "pytest>=8.3.3",
+    "hatch-vcs",
+    "hatch-fancy-pypi-readme",
+]
 
 [tool.rye.scripts]
 test = "pytest tests/"
@@ -52,43 +70,18 @@ select = ["E", "B", "F", "UP", "I001", "T203"]
 
 [tool.mypy]
 plugins = ["pydantic.mypy"]
-# Enable strict mode (enables a combination of options listed below)
 strict = true
-
-# Disallow dynamic typing by requiring type annotations for all functions and variables
 disallow_untyped_calls = true
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 disallow_untyped_decorators = true
-
-# Require explicit typing for function arguments and return types
 disallow_any_generics = true
-
-# Disallow the use of `Any` in type signatures
-#disallow_any_explicit = true
-#disallow_any_expr = true
-#disallow_any_unimported = true
-#disallow_any_decorated = true
-
-# Require explicit `Optional` types (disallows implicit `Optional` in case of None)
 no_implicit_optional = true
-
-# Report unnecessary type casts
 warn_redundant_casts = true
-
-# Report unreachable code after conditionals or return statements
 warn_unreachable = true
-
-# Report unused "ignores"
 warn_unused_ignores = true
-
-# Disallow equality checks between incompatible types
 strict_equality = true
-
-# Warn about possibly incorrect return types
 warn_return_any = true
-
-# Disable unused imports and unused variables (optional)
 check_untyped_defs = true
 
 [tool.pydantic-mypy]
