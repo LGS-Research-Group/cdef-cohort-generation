@@ -64,7 +64,7 @@ def process_register_data(
             df = pl.scan_parquet(file, allow_missing_columns=True)
 
             # Get the columns that exist in this file
-            existing_columns = set(df.columns)
+            existing_columns = set(df.collect_schema().names())
 
             # If columns_to_keep is specified and not None, only keep columns that exist
             if columns_to_keep is not None:
@@ -87,7 +87,7 @@ def process_register_data(
         data = pl.scan_parquet(files, allow_missing_columns=True)
 
         # Get the columns that exist in the data
-        existing_columns = set(data.columns)
+        existing_columns = set(data.collect_schema().names())
 
         # If columns_to_keep is specified and not None, only keep columns that exist
         if columns_to_keep is not None:
@@ -97,7 +97,7 @@ def process_register_data(
     # Parse date columns if specified
     if date_columns:
         for col in date_columns:
-            if col in data.columns:
+            if col in data.collect_schema().names():
                 data = data.with_columns(parse_dates(col).alias(col))
 
     # Special handling for UDDF register
@@ -119,7 +119,10 @@ def process_register_data(
         if join_parents_only:
             # For father's data
             father_data = data.select(
-                [pl.col(col).alias(f"FAR_{col}" if col != join_on else col) for col in data.columns]
+                [
+                    pl.col(col).alias(f"FAR_{col}" if col != join_on else col)
+                    for col in data.collect_schema().names()
+                ]
             )
             result = result.join(
                 father_data,
@@ -130,7 +133,10 @@ def process_register_data(
 
             # For mother's data
             mother_data = data.select(
-                [pl.col(col).alias(f"MOR_{col}" if col != join_on else col) for col in data.columns]
+                [
+                    pl.col(col).alias(f"MOR_{col}" if col != join_on else col)
+                    for col in data.collect_schema().names()
+                ]
             )
             result = result.join(
                 mother_data,

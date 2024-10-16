@@ -53,8 +53,8 @@ allow-direct-references = true
 packages = ["src/cdef_cohort_generation"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"mappings" = "mappings"
-".env.example" = ".env.example"
+"src/cdef_cohort_generation/mappings" = "src/cdef_cohort_generation/mappings"
+".env.example" = "src/cdef_cohort_generation/.env.example"
 
 [tool.rye]
 universal = true

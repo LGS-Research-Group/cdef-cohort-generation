@@ -6,6 +6,7 @@ from typing import Any, TypeVar, cast
 
 from imohash import hashfile  # type: ignore
 
+from cdef_cohort_generation.utils import config
 from cdef_cohort_generation.utils.config import HASH_FILE_PATH
 
 T = TypeVar("T")
@@ -43,9 +44,14 @@ def process_with_hash_check(process_func: Callable[..., Any], *args: Any, **kwar
     process_func: The function to call for processing (e.g., process_lpr_adm)
     *args, **kwargs: Additional arguments to pass to process_func
     """
-    # Get the input and output file information from the process function
-    input_files = process_func.__globals__.get(f"{process_func.__name__.upper()}_FILES")
-    output_file = process_func.__globals__.get(f"{process_func.__name__.upper()}_OUT")
+    # Generate the expected variable names
+    register_name = "_".join(process_func.__name__.upper().split("_")[1:])
+    input_files_var = f"{register_name}_FILES"
+    output_file_var = f"{register_name}_OUT"
+
+    # Get the input and output file information from the config module
+    input_files = getattr(config, input_files_var, None)
+    output_file = getattr(config, output_file_var, None)
 
     if not input_files or not output_file:
         raise ValueError(
