@@ -149,7 +149,6 @@ packaging==24.1
 pandas==2.2.3
     # via adbc-driver-manager
     # via adbc-driver-sqlite
-    # via cdef-cohort-builder
     # via formulaic
     # via lifelines
     # via polars

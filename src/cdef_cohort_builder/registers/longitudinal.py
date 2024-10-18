@@ -16,7 +16,7 @@ from cdef_cohort_builder.utils.config import (
 from cdef_cohort_builder.utils.hash_utils import process_with_hash_check
 
 
-def process_and_partition_longitudinal_data(output_dir: Path) -> None:
+def process_and_partition_longitudinal_data(output_dir: Path) -> pl.LazyFrame:
     """Process, combine, and partition longitudinal data from various registers."""
 
     logger.info("Processing longitudinal data")
@@ -100,10 +100,10 @@ def process_and_partition_longitudinal_data(output_dir: Path) -> None:
         )
 
     logger.info(f"Transformed and partitioned combined data saved to {output_dir}")
-    return combined_data
+    return combined_data  # Return the combined data
 
 
-def rename_duplicates(df):
+def rename_duplicates(df: pl.LazyFrame) -> pl.LazyFrame:
     columns = df.collect_schema().names()
     new_names = []
     seen = set()

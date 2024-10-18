@@ -1,3 +1,3 @@
-from . import event_summaries, main, registers, settings, utils
+from . import events, main, registers, settings, utils
 
-__all__ = ["main", "registers", "utils", "settings", "event_summaries"]
+__all__ = ["main", "registers", "utils", "settings", "events"]

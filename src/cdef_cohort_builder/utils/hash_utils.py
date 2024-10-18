@@ -4,7 +4,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TypeVar, cast
 
-from imohash import hashfile  # type: ignore
+from imohash import hashfile
 
 from cdef_cohort_builder.logging_config import logger
 from cdef_cohort_builder.utils import config

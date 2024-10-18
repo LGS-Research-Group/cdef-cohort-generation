@@ -1,9 +1,21 @@
 import os
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import polars as pl
+import polars.selectors as cs
 
-from cdef_cohort_builder.event_summaries import main as generate_event_summaries
+from cdef_cohort_builder.events.plotting import (
+    plot_event_heatmap,
+    plot_sankey,
+    plot_survival_curve,
+    plot_time_series,
+)
+from cdef_cohort_builder.events.summaries import (
+    create_interactive_dashboard,
+    generate_descriptive_stats,
+    generate_summary_table,
+)
 from cdef_cohort_builder.logging_config import logger
 from cdef_cohort_builder.population import main as generate_population
 from cdef_cohort_builder.registers import (
@@ -124,6 +136,76 @@ def process_static_data(scd_data: pl.LazyFrame) -> pl.LazyFrame:
     return result
 
 
+def generate_event_summaries(events_df: pl.LazyFrame, output_dir: Path) -> None:
+    """Generate event summaries and plots."""
+    logger.info("Generating event summaries")
+    create_output_directory(output_dir)
+
+    generate_and_save_summary_table(events_df, output_dir)
+    generate_and_save_plots(events_df, output_dir)
+    generate_and_save_survival_curves(events_df, output_dir)
+    generate_and_save_descriptive_stats(events_df, output_dir)
+    generate_and_save_interactive_dashboard(events_df, output_dir)
+
+    logger.info(f"All visualizations and tables have been generated and saved to {output_dir}")
+
+
+def create_output_directory(output_dir: Path) -> None:
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+
+def generate_and_save_summary_table(events_df: pl.LazyFrame, output_dir: Path) -> None:
+    summary_table = generate_summary_table(events_df)
+    summary_table.write_csv(output_dir / "summary_table.csv")
+
+
+def generate_and_save_plots(events_df: pl.LazyFrame, output_dir: Path) -> None:
+    matplotlib_plots = [
+        ("time_series_plot", plot_time_series),
+        ("event_heatmap", plot_event_heatmap),
+    ]
+
+    for plot_name, plot_function in matplotlib_plots:
+        fig = plot_function(events_df)
+        fig.savefig(output_dir / f"{plot_name}.png")
+        plt.close(fig)
+
+    # Generate and save Sankey diagram
+    event_sequence = get_event_sequence(events_df)
+    sankey = plot_sankey(events_df, event_sequence)
+    sankey.write_html(output_dir / "sankey_diagram.html")
+
+
+def get_event_sequence(events_df: pl.LazyFrame) -> list[str]:
+    return events_df.select(pl.col("event_type").unique()).collect().to_series().to_list()
+
+
+def generate_and_save_survival_curves(events_df: pl.LazyFrame, output_dir: Path) -> None:
+    event_types = get_event_sequence(events_df)
+
+    for event_type in event_types:
+        survival_curve = plot_survival_curve(events_df, event_type)
+        if survival_curve is not None:
+            survival_curve.savefig(output_dir / f"survival_curve_{event_type}.png")
+            plt.close(survival_curve)
+        else:
+            logger.warning(f"Skipping survival curve for {event_type} due to insufficient data")
+
+
+def generate_and_save_descriptive_stats(events_df: pl.LazyFrame, output_dir: Path) -> None:
+    numeric_cols = cs.expand_selector(events_df, cs.numeric())
+    if numeric_cols:
+        desc_stats = generate_descriptive_stats(events_df, list(numeric_cols))
+        desc_stats.write_csv(output_dir / "descriptive_stats.csv")
+    else:
+        logger.warning("No numeric columns found for descriptive statistics")
+
+
+def generate_and_save_interactive_dashboard(events_df: pl.LazyFrame, output_dir: Path) -> None:
+    dashboard = create_interactive_dashboard(events_df)
+    dashboard.write_html(output_dir / "interactive_dashboard.html")
+
+
 def main(output_dir: Path | None = None) -> None:
     from cdef_cohort_builder.settings import settings
 
@@ -157,9 +239,6 @@ def main(output_dir: Path | None = None) -> None:
 
     logger.info("Processing longitudinal data")
     combined_longitudinal_data = process_and_partition_longitudinal_data(output_dir)
-    if combined_longitudinal_data is None:
-        logger.error("Failed to process longitudinal data")
-        return
     logger.info("Longitudinal data processing completed")
 
     logger.info("Identifying events")
@@ -170,8 +249,7 @@ def main(output_dir: Path | None = None) -> None:
 
     logger.info("Generating event summaries")
     event_summaries_dir = output_dir / "event_summaries"
-    events_df = pl.read_parquet(events_file)
-    generate_event_summaries(events_df, event_summaries_dir)
+    generate_event_summaries(events, event_summaries_dir)
     logger.info("Event summaries generated")
 
     logger.info("Cohort generation process completed")
