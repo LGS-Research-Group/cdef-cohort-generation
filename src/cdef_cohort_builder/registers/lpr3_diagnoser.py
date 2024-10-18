@@ -1,10 +1,11 @@
 import polars as pl
 
+from cdef_cohort_builder.logging_config import logger
+from cdef_cohort_builder.registers.generic import process_register_data
 from cdef_cohort_builder.utils.config import (
     LPR3_DIAGNOSER_FILES,
     LPR3_DIAGNOSER_OUT,
 )
-from cdef_cohort_builder.utils.register import process_register_data
 from cdef_cohort_builder.utils.types import KwargsType
 
 LPR3_DIAGNOSER_SCHEMA = {
@@ -23,6 +24,9 @@ LPR3_DIAGNOSER_DEFAULTS = {
     "columns_to_keep": ["DW_EK_KONTAKT", "diagnosekode"],
 }
 
+logger.debug(f"LPR3_DIAGNOSER_SCHEMA: {LPR3_DIAGNOSER_SCHEMA}")
+logger.debug(f"LPR3_DIAGNOSER_DEFAULTS: {LPR3_DIAGNOSER_DEFAULTS}")
+
 
 def process_lpr3_diagnoser(**kwargs: KwargsType) -> None:
     process_register_data(
@@ -30,6 +34,7 @@ def process_lpr3_diagnoser(**kwargs: KwargsType) -> None:
         output_file=LPR3_DIAGNOSER_OUT,
         schema=LPR3_DIAGNOSER_SCHEMA,
         defaults=LPR3_DIAGNOSER_DEFAULTS,
+        register_name="LPR3_DIAGNOSER",
         **kwargs,
     )
 

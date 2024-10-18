@@ -1,11 +1,15 @@
 import importlib.resources as pkg_resources
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import polars as pl
 from pydantic import ValidationError, computed_field, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# from cdef_cohort_builder.logging_config import LogLevel, logger
+
+LogLevel = Literal["debug", "info", "warning", "error", "critical"]
 
 
 class Settings(BaseSettings):
@@ -17,13 +21,48 @@ class Settings(BaseSettings):
     PARQUETS: str = "*.parquet"
     BIRTH_INCLUSION_START_YEAR: int = 1995
     BIRTH_INCLUSION_END_YEAR: int = 2020
+    LOG_LEVEL: LogLevel = "info"
 
     EVENT_DEFINITIONS: dict[str, Any] = {
+        # Existing events
         "father_education_change": (pl.col("FAR_EDU_LVL").shift() != pl.col("FAR_EDU_LVL")),
         "mother_education_change": (pl.col("MOR_EDU_LVL").shift() != pl.col("MOR_EDU_LVL")),
         "father_income_change": (pl.col("FAR_PERINDKIALT_13").cast(pl.Float64).diff() != 0),
         "mother_income_change": (pl.col("MOR_PERINDKIALT_13").cast(pl.Float64).diff() != 0),
         "municipality_change": (pl.col("KOM").shift() != pl.col("KOM")),
+        # New events
+        "family_composition_change": (pl.col("FAMILIE_TYPE").shift() != pl.col("FAMILIE_TYPE")),
+        "marital_status_change": (pl.col("CIVST").shift() != pl.col("CIVST")),
+        "significant_income_increase_father": (
+            pl.col("FAR_PERINDKIALT_13").cast(pl.Float64).pct_change() > 0.10
+        ),
+        "significant_income_increase_mother": (
+            pl.col("MOR_PERINDKIALT_13").cast(pl.Float64).pct_change() > 0.10
+        ),
+        "significant_income_decrease_father": (
+            pl.col("FAR_PERINDKIALT_13").cast(pl.Float64).pct_change() < -0.10
+        ),
+        "significant_income_decrease_mother": (
+            pl.col("MOR_PERINDKIALT_13").cast(pl.Float64).pct_change() < -0.10
+        ),
+        "father_employment_status_change": (
+            pl.col("FAR_BESKST13").shift() != pl.col("FAR_BESKST13")
+        ),
+        "mother_employment_status_change": (
+            pl.col("MOR_BESKST13").shift() != pl.col("MOR_BESKST13")
+        ),
+        "father_job_change": (pl.col("FAR_STILL").shift() != pl.col("FAR_STILL")),
+        "mother_job_change": (pl.col("MOR_STILL").shift() != pl.col("MOR_STILL")),
+        "household_size_increase": (pl.col("ANTPERSH").diff() > 0),
+        "household_size_decrease": (pl.col("ANTPERSH").diff() < 0),
+        "number_of_children_increase": (pl.col("ANTBOERNH").diff() > 0),
+        "number_of_children_decrease": (pl.col("ANTBOERNH").diff() < 0),
+        "father_socioeconomic_status_change": (
+            pl.col("FAR_SOCIO13").shift() != pl.col("FAR_SOCIO13")
+        ),
+        "mother_socioeconomic_status_change": (
+            pl.col("MOR_SOCIO13").shift() != pl.col("MOR_SOCIO13")
+        ),
     }
 
     model_config = SettingsConfigDict(
@@ -173,7 +212,7 @@ class Settings(BaseSettings):
     def get_mapping_path(filename: str) -> Path:
         """Get the path to a mapping file."""
         with pkg_resources.as_file(
-            pkg_resources.files("cdef_cohort_builder").joinpath("..", "..", "mappings", filename)
+            pkg_resources.files("cdef_cohort_builder").joinpath("mappings", filename)
         ) as path:
             return Path(path)
 
@@ -188,6 +227,12 @@ class Settings(BaseSettings):
         if not path.exists():
             raise ValueError(f"Directory does not exist: {path}")
         return path
+
+    @validator("LOG_LEVEL")
+    def validate_log_level(cls, v: str) -> str:
+        if v.lower() not in ["debug", "info", "warning", "error", "critical"]:
+            raise ValueError(f"Invalid log level: {v}")
+        return v.lower()
 
     @validator(
         "BEF_FILES",
@@ -228,6 +273,6 @@ except Exception as e:
     sys.exit(1)
 
 
-# Optional: You can add a function to check if settings loaded successfully
+# Function to check if settings loaded successfully
 def check_settings() -> bool:
     return settings is not None

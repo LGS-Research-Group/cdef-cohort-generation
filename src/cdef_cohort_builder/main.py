@@ -3,27 +3,20 @@ from pathlib import Path
 
 import polars as pl
 
-from cdef_cohort_builder.logging_config import log
+from cdef_cohort_builder.event_summaries import main as generate_event_summaries
+from cdef_cohort_builder.logging_config import logger
 from cdef_cohort_builder.population import main as generate_population
 from cdef_cohort_builder.registers import (
-    process_akm,
-    process_bef,
-    process_idan,
-    process_ind,
-    process_lpr3_diagnoser,
-    process_lpr3_kontakter,
-    process_lpr_adm,
-    process_lpr_bes,
-    process_lpr_diag,
-    process_uddf,
+    lpr3_diagnoser,
+    lpr3_kontakter,
+    lpr_adm,
+    lpr_bes,
+    lpr_diag,
 )
+from cdef_cohort_builder.registers.longitudinal import process_and_partition_longitudinal_data
 from cdef_cohort_builder.utils.config import (
-    AKM_OUT,
-    BEF_OUT,
     COHORT_FILE,
     EVENT_DEFINITIONS,
-    IDAN_OUT,
-    IND_OUT,
     LPR3_DIAGNOSER_OUT,
     LPR3_KONTAKTER_OUT,
     LPR_ADM_OUT,
@@ -31,185 +24,116 @@ from cdef_cohort_builder.utils.config import (
     LPR_DIAG_OUT,
     POPULATION_FILE,
     STATIC_COHORT,
-    UDDF_OUT,
 )
 from cdef_cohort_builder.utils.event import identify_events
 from cdef_cohort_builder.utils.harmonize_lpr import (
-    combine_harmonized_data,
-    harmonize_health_data,
     integrate_lpr2_components,
     integrate_lpr3_components,
 )
 from cdef_cohort_builder.utils.hash_utils import process_with_hash_check
-from cdef_cohort_builder.utils.icd import apply_scd_algorithm
-
-# Define the path for the central hash file
-HASH_FILE_PATH = Path("data/hash_file.json")
-
-
-def log_lazyframe_info(name: str, df: pl.LazyFrame) -> None:
-    schema = df.collect_schema()
-    total_rows = df.select(pl.count()).collect()[0, 0]
-
-    log(f"--- {name} ---")
-    log(f"Number of rows: {total_rows}")
-    log(f"Columns and types: {str(schema)}")
-
-    # Compute missing values for each column
-    missing_values = df.select(
-        [pl.col(col).null_count().alias(f"{col}_null_count") for col in schema.keys()]
-    ).collect()
-
-    log("Missing values:")
-    for col in schema.keys():
-        null_count = missing_values[0, f"{col}_null_count"]
-        percentage = (null_count / total_rows) * 100
-        log(f"  {col}: {null_count} ({percentage:.2f}%)")
+from cdef_cohort_builder.utils.icd import apply_scd_algorithm_single
 
 
 def identify_severe_chronic_disease() -> pl.LazyFrame:
-    """Process health data and identify children with severe chronic diseases.
+    """Process health data and identify children with severe chronic diseases."""
+    logger.info("Starting identification of severe chronic diseases")
 
-    Returns:
-    pl.DataFrame: DataFrame with PNR, is_scd flag, and first_scd_date.
-
-    """
-    # Step 1: Process health register data
+    logger.debug("Processing LPR_ADM data")
     process_with_hash_check(
-        process_lpr_adm, columns_to_keep=["PNR", "C_ADIAG", "RECNUM", "D_INDDTO"]
+        lpr_adm.process_lpr_adm, columns_to_keep=["PNR", "C_ADIAG", "RECNUM", "D_INDDTO"]
     )
 
-    process_with_hash_check(process_lpr_diag, columns_to_keep=["RECNUM", "C_DIAG", "C_TILDIAG"])
-
-    process_with_hash_check(process_lpr_bes, columns_to_keep=["D_AMBDTO", "RECNUM"])
-
+    logger.debug("Processing LPR_DIAG data")
     process_with_hash_check(
-        process_lpr3_diagnoser, columns_to_keep=["DW_EK_KONTAKT", "diagnosekode"]
+        lpr_diag.process_lpr_diag, columns_to_keep=["RECNUM", "C_DIAG", "C_TILDIAG"]
     )
 
+    logger.debug("Processing LPR_BES data")
+    process_with_hash_check(lpr_bes.process_lpr_bes, columns_to_keep=["D_AMBDTO", "RECNUM"])
+
+    logger.debug("Processing LPR3_DIAGNOSER data")
     process_with_hash_check(
-        process_lpr3_kontakter,
+        lpr3_diagnoser.process_lpr3_diagnoser, columns_to_keep=["DW_EK_KONTAKT", "diagnosekode"]
+    )
+
+    logger.debug("Processing LPR3_KONTAKTER data")
+    process_with_hash_check(
+        lpr3_kontakter.process_lpr3_kontakter,
         columns_to_keep=["DW_EK_KONTAKT", "CPR", "aktionsdiagnose", "dato_start"],
     )
 
-    # Read processed health data
-    # LPR2
-    lpr_adm = pl.scan_parquet(LPR_ADM_OUT)
-    lpr_diag = pl.scan_parquet(LPR_DIAG_OUT)
-    lpr_bes = pl.scan_parquet(LPR_BES_OUT)
-    # LPR3
-    lpr3_diagnoser = pl.scan_parquet(LPR3_DIAGNOSER_OUT)
-    lpr3_kontakter = pl.scan_parquet(LPR3_KONTAKTER_OUT)
+    logger.info("Integrating LPR2 components")
+    lpr2 = integrate_lpr2_components(
+        pl.scan_parquet(LPR_ADM_OUT), pl.scan_parquet(LPR_DIAG_OUT), pl.scan_parquet(LPR_BES_OUT)
+    )
 
-    # Combine LPR2 data
-    lpr2 = integrate_lpr2_components(lpr_adm, lpr_diag, lpr_bes)
+    logger.debug(f"LPR2 data schema: {lpr2.collect_schema()}")
 
-    # Combine LPR3 data
-    lpr3 = integrate_lpr3_components(lpr3_kontakter, lpr3_diagnoser)
+    logger.info("Applying SCD algorithm to LPR2 data")
+    lpr2_scd = apply_scd_algorithm_single(
+        lpr2,
+        diagnosis_columns=["C_ADIAG", "C_DIAG", "C_TILDIAG"],
+        date_column="D_INDDTO",
+        patient_id_column="PNR",
+    )
 
-    # Step 5: Harmonize and combine all health data
-    lpr2_harmonized, lpr3_harmonized = harmonize_health_data(lpr2, lpr3)
+    logger.info("Integrating LPR3 components")
+    lpr3 = integrate_lpr3_components(
+        pl.scan_parquet(LPR3_KONTAKTER_OUT), pl.scan_parquet(LPR3_DIAGNOSER_OUT)
+    )
 
-    # Combine harmonized data
-    health_data = combine_harmonized_data(lpr2_harmonized, lpr3_harmonized)
+    logger.info("Applying SCD algorithm to LPR3 data")
+    lpr3_scd = apply_scd_algorithm_single(
+        lpr3,
+        diagnosis_columns=["aktionsdiagnose", "diagnosekode"],
+        date_column="dato_start",
+        patient_id_column="CPR",
+    )
 
-    diagnosis_date_mapping = {
-        "primary_diagnosis": "admission_date",
-        "secondary_diagnosis": "admission_date",
-        "diagnosis": "outpatient_date",
-    }
-    scd_data = apply_scd_algorithm(health_data, diagnosis_date_mapping)
+    logger.debug("Renaming CPR to PNR in LPR3 data")
+    lpr3_scd = lpr3_scd.with_columns(pl.col("CPR").alias("PNR"))
 
-    # Check if patient_id exists
-    if "patient_id" not in scd_data.collect_schema().names():
-        raise ValueError("patient_id column not found in SCD data after processing")
+    logger.info("Combining LPR2 and LPR3 SCD results")
+    combined_scd = pl.concat([lpr2_scd, lpr3_scd])
 
-    # Step 7: Aggregate to patient level
-    aggregated_scd_data = scd_data.group_by("patient_id").agg(
+    logger.info("Performing final aggregation to patient level")
+    final_scd_data = combined_scd.group_by("PNR").agg(
         [
             pl.col("is_scd").max().alias("is_scd"),
             pl.col("first_scd_date").min().alias("first_scd_date"),
-        ],
+        ]
     )
 
-    # Collect the data and print summary
-    collected_data = aggregated_scd_data.collect()
-    total_patients = collected_data.shape[0]
-    scd_patients = collected_data.filter(pl.col("is_scd")).shape[0]
-
-    log(f"Total number of patients: {total_patients}")
-    log(f"Number of patients with SCD: {scd_patients}")
-    log(f"Percentage of patients with SCD: {scd_patients / total_patients * 100:.2f}%")
-
-    # Print a sample of SCD patients
-    scd_sample = collected_data.filter(pl.col("is_scd")).head(n=min(5, scd_patients))
-    log("Sample of SCD patients:")
-    log(f"Sample of SCD cases:\n{scd_sample}")
-
-    return aggregated_scd_data
+    logger.info("Severe chronic disease identification completed")
+    return final_scd_data
 
 
 def process_static_data(scd_data: pl.LazyFrame) -> pl.LazyFrame:
     """Process static cohort data."""
+    logger.info("Processing static cohort data")
     population = pl.scan_parquet(POPULATION_FILE)
 
-    # Check if PNR exists in both dataframes
-    if "PNR" not in population.collect_schema().names():
-        raise ValueError("PNR column not found in population data")
-    if "patient_id" not in scd_data.collect_schema().names():
-        raise ValueError("PNR column not found in SCD data")
-
-    # Ensure PNR is of the same type in both dataframes
+    logger.debug("Ensuring PNR is of the same type in both dataframes")
     population = population.with_columns(pl.col("PNR").cast(pl.Utf8))
-    scd_data = scd_data.with_columns(pl.col("patient_id").cast(pl.Utf8))
+    scd_data = scd_data.with_columns(pl.col("PNR").cast(pl.Utf8))
 
-    # Join the dataframes
-    result = population.join(scd_data, left_on="PNR", right_on="patient_id", how="left")
+    logger.info("Joining population data with SCD data")
+    result = population.join(scd_data, left_on="PNR", right_on="PNR", how="left")
 
-    # Check if PNR exists in the result
-    if "PNR" not in result.collect_schema().names():
-        raise ValueError("PNR column not found in joined result")
-
+    logger.info("Static data processing completed")
     return result
 
 
-def process_longitudinal_data() -> pl.LazyFrame:
-    """Process longitudinal data from various registers."""
-    common_params = {
-        "population_file": STATIC_COHORT,
-        "longitudinal": True,
-    }
-
-    # Process registers that contain longitudinal data
-    process_with_hash_check(process_bef, **common_params)
-    process_with_hash_check(process_akm, **common_params)
-    process_with_hash_check(process_ind, **common_params)
-    process_with_hash_check(process_idan, **common_params)
-    process_with_hash_check(process_uddf, **common_params)
-
-    # Combine longitudinal data from different registers
-    longitudinal_registers = [BEF_OUT, AKM_OUT, IND_OUT, IDAN_OUT, UDDF_OUT]
-    longitudinal_data = []
-    all_columns = set()
-
-    for register in longitudinal_registers:
-        register_data = pl.scan_parquet(register)
-        log(f"Schema for {register}: {register_data.collect_schema()}")
-        all_columns.update(register_data.collect_schema().names())
-        longitudinal_data.append(register_data)
-
-    log(f"All columns across registers: {all_columns}")
-
-    # Use union_all instead of concat
-    return pl.concat(longitudinal_data, how="diagonal")
-
-
-# Main execution
 def main(output_dir: Path | None = None) -> None:
+    from cdef_cohort_builder.settings import settings
+
+    logger.setLevel(settings.LOG_LEVEL.upper())  # Set log level from settings
+    logger.info("Starting cohort generation process")
+
     if output_dir is None:
         output_dir = COHORT_FILE.parent
 
-    # Ensure output directories exist
+    logger.debug("Ensuring output directories exist")
     os.makedirs(output_dir, exist_ok=True)
     os.makedirs(LPR_ADM_OUT.parent, exist_ok=True)
     os.makedirs(LPR_DIAG_OUT.parent, exist_ok=True)
@@ -217,36 +141,40 @@ def main(output_dir: Path | None = None) -> None:
     os.makedirs(LPR3_DIAGNOSER_OUT.parent, exist_ok=True)
     os.makedirs(LPR3_KONTAKTER_OUT.parent, exist_ok=True)
 
-    log("Starting cohort generation process")
-
-    # Generate population
-    log("Generating population data")
+    logger.info("Generating population data")
     generate_population()
-    log("Population data generation completed")
+    logger.info("Population data generation completed")
 
-    # Process health data and identify SCD
-    log("Identifying severe chronic diseases")
+    logger.info("Identifying severe chronic diseases")
     scd_data = identify_severe_chronic_disease()
-    log("Severe chronic disease identification completed")
+    logger.info("Severe chronic disease identification completed")
 
-    # Process static data
-    log("Processing static data")
+    logger.info("Processing static data")
     static_cohort = process_static_data(scd_data)
-    log("Static data processing completed")
+    logger.info("Static data processing completed")
     static_cohort.collect().write_parquet(STATIC_COHORT)
-    log(f"Static cohort data written to {STATIC_COHORT.name}")
+    logger.info(f"Static cohort data written to {STATIC_COHORT.name}")
 
-    # Process longitudinal data
-    log("Processing longitudinal data")
-    longitudinal_data = process_longitudinal_data()
-    # log_lazyframe_info("Longitudianl data: ", longitudinal_data)
-    log("Longitudinal data processing completed")
-    longitudinal_data.collect().write_parquet(output_dir / "longitudinal_data.parquet")
-    log(f"Longitudinal data written to {output_dir / 'longitudinal_data.parquet'}")
+    logger.info("Processing longitudinal data")
+    combined_longitudinal_data = process_and_partition_longitudinal_data(output_dir)
+    if combined_longitudinal_data is None:
+        logger.error("Failed to process longitudinal data")
+        return
+    logger.info("Longitudinal data processing completed")
 
-    # Identify events
-    events = identify_events(longitudinal_data, EVENT_DEFINITIONS)
-    events.collect().write_parquet(output_dir / "events.parquet")
+    logger.info("Identifying events")
+    events = identify_events(combined_longitudinal_data, EVENT_DEFINITIONS)
+    events_file = output_dir / "events.parquet"
+    events.collect().write_parquet(events_file)
+    logger.info("Events identified and saved")
+
+    logger.info("Generating event summaries")
+    event_summaries_dir = output_dir / "event_summaries"
+    events_df = pl.read_parquet(events_file)
+    generate_event_summaries(events_df, event_summaries_dir)
+    logger.info("Event summaries generated")
+
+    logger.info("Cohort generation process completed")
 
 
 if __name__ == "__main__":

@@ -15,6 +15,11 @@ dependencies = [
     "pydantic[mypy]>=2.9.2",
     "pydantic-settings>=2.5.2",
     "imohash>=1.1.0",
+    "matplotlib>=3.9.2",
+    "seaborn[stats]>=0.13.2",
+    "plotly>=5.24.1",
+    "plotly-geo>=1.0.0",
+    "lifelines>=0.29.0",
 ]
 requires-python = ">= 3.12"
 license = "MIT"
@@ -56,10 +61,6 @@ packages = ["src/cdef_cohort_builder"]
 "cdef_cohort_builder" = ["mappings/*.json", ".env.example"]
 
 
-# [tool.hatch.build.targets.wheel.force-include]
-# "src/cdef_cohort_builder/mappings" = "src/cdef_cohort_builder/mappings"
-# ".env.example" = "src/cdef_cohort_builder/.env.example"
-
 [tool.rye]
 universal = true
 managed = true
@@ -71,8 +72,11 @@ dev-dependencies = [
 ]
 
 [tool.rye.scripts]
+clean-and-run = { chain = ["clean:data", "cdef-cohort-generation"] }
+"clean:data" = "rm -rf /Users/tobiaskragholm/dev/TEST_RUN/data/*"
 test = "pytest tests/"
 static = "mypy --strict src/"
+
 
 [tool.ruff]
 line-length = 100

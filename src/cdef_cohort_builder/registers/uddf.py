@@ -1,11 +1,13 @@
 import polars as pl
 
+from cdef_cohort_builder.logging_config import logger
+from cdef_cohort_builder.registers.generic import process_register_data
 from cdef_cohort_builder.utils.config import (
     POPULATION_FILE,
     UDDF_FILES,
     UDDF_OUT,
 )
-from cdef_cohort_builder.utils.register import process_register_data
+from cdef_cohort_builder.utils.logging_decorator import log_processing
 from cdef_cohort_builder.utils.types import KwargsType
 
 UDDF_SCHEMA = {
@@ -30,13 +32,18 @@ UDDF_DEFAULTS = {
     "longitudinal": True,
 }
 
+logger.debug(f"UDDF_SCHEMA: {UDDF_SCHEMA}")
+logger.debug(f"UDDF_DEFAULTS: {UDDF_DEFAULTS}")
 
+
+@log_processing
 def process_uddf(**kwargs: KwargsType) -> None:
     process_register_data(
         input_files=UDDF_FILES,
         output_file=UDDF_OUT,
         schema=UDDF_SCHEMA,
         defaults=UDDF_DEFAULTS,
+        register_name="UDDF",
         **kwargs,
     )
 

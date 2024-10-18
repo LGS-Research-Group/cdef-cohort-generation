@@ -51,20 +51,34 @@ class RichLogger:
     def critical(self, message: str, **kwargs: Any) -> None:
         self.log(message, "critical", **kwargs)
 
+    def setLevel(self, level: str) -> None:
+        numeric_level = getattr(logging, level.upper())
+        self.logger.setLevel(numeric_level)
+        for handler in self.logger.handlers:
+            handler.setLevel(numeric_level)
 
-def setup_logging() -> RichLogger:
+
+def setup_logging(log_level: LogLevel = "info") -> RichLogger:
     log_dir = Path("logs")
     log_dir.mkdir(exist_ok=True)
 
-    # Create a timestamp for the log file name
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     log_file = log_dir / f"cdef_cohort_builder_{timestamp}.log"
 
     logger = RichLogger("cdef_cohort_builder", log_file)
 
-    # Log the start of the logging session
+    # Convert string log level to logging module constant
+    numeric_level = getattr(logging, log_level.upper())
+
+    # Set the level for both handlers
+    for handler in logger.logger.handlers:
+        handler.setLevel(numeric_level)
+
+    logger.logger.setLevel(numeric_level)  # Set the logger's level as well
+
     logger.info(f"Logging session started at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     logger.info(f"Log file: {log_file}")
+    logger.info(f"Log level set to: {log_level.upper()}")
 
     return logger
 

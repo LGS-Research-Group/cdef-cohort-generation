@@ -1,11 +1,13 @@
 import polars as pl
 
+from cdef_cohort_builder.logging_config import logger
+from cdef_cohort_builder.registers.generic import process_register_data
 from cdef_cohort_builder.utils.config import (
     AKM_FILES,
     AKM_OUT,
     POPULATION_FILE,
 )
-from cdef_cohort_builder.utils.register import process_register_data
+from cdef_cohort_builder.utils.logging_decorator import log_processing
 from cdef_cohort_builder.utils.types import KwargsType
 
 AKM_SCHEMA = {
@@ -26,7 +28,11 @@ AKM_DEFAULTS = {
     "longitudinal": False,
 }
 
+logger.debug(f"AKM_SCHEMA: {AKM_SCHEMA}")
+logger.debug(f"AKM_DEFAULTS: {AKM_DEFAULTS}")
 
+
+@log_processing
 def process_akm(**kwargs: KwargsType) -> None:
     """Process AKM data, join with population data, and save the result."""
     process_register_data(
@@ -34,9 +40,12 @@ def process_akm(**kwargs: KwargsType) -> None:
         output_file=AKM_OUT,
         schema=AKM_SCHEMA,
         defaults=AKM_DEFAULTS,
+        register_name="AKM",
         **kwargs,
     )
 
 
 if __name__ == "__main__":
+    logger.debug("Running process_akm as main")
     process_akm()
+    logger.debug("Finished running process_akm as main")

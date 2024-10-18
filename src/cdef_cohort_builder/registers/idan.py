@@ -1,11 +1,13 @@
 import polars as pl
 
+from cdef_cohort_builder.logging_config import logger
+from cdef_cohort_builder.registers.generic import process_register_data
 from cdef_cohort_builder.utils.config import (
     IDAN_FILES,
     IDAN_OUT,
     POPULATION_FILE,
 )
-from cdef_cohort_builder.utils.register import process_register_data
+from cdef_cohort_builder.utils.logging_decorator import log_processing
 from cdef_cohort_builder.utils.types import KwargsType
 
 IDAN_SCHEMA = {
@@ -41,13 +43,18 @@ IDAN_DEFAULTS = {
     "longitudinal": True,
 }
 
+logger.debug(f"IDAN_SCHEMA: {IDAN_SCHEMA}")
+logger.debug(f"IDAN_DEFAULTS: {IDAN_DEFAULTS}")
 
+
+@log_processing
 def process_idan(**kwargs: KwargsType) -> None:
     process_register_data(
         input_files=IDAN_FILES,
         output_file=IDAN_OUT,
         schema=IDAN_SCHEMA,
         defaults=IDAN_DEFAULTS,
+        register_name="IDAN",
         **kwargs,
     )
 

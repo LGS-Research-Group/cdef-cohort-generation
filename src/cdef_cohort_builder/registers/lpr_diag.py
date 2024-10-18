@@ -1,10 +1,12 @@
 import polars as pl
 
+from cdef_cohort_builder.logging_config import logger
+from cdef_cohort_builder.registers.generic import process_register_data
 from cdef_cohort_builder.utils.config import (
     LPR_DIAG_FILES,
     LPR_DIAG_OUT,
 )
-from cdef_cohort_builder.utils.register import process_register_data
+from cdef_cohort_builder.utils.logging_decorator import log_processing
 from cdef_cohort_builder.utils.types import KwargsType
 
 LPR_DIAG_SCHEMA = {
@@ -29,13 +31,18 @@ LPR_DIAG_DEFAULTS = {
     ],
 }
 
+logger.debug(f"LPR_DIAG_SCHEMA: {LPR_DIAG_SCHEMA}")
+logger.debug(f"LPR_DIAG_DEFAULTS: {LPR_DIAG_DEFAULTS}")
 
+
+@log_processing
 def process_lpr_diag(**kwargs: KwargsType) -> None:
     process_register_data(
         input_files=LPR_DIAG_FILES,
         output_file=LPR_DIAG_OUT,
         schema=LPR_DIAG_SCHEMA,
         defaults=LPR_DIAG_DEFAULTS,
+        register_name="LPR_DIAG",
         **kwargs,
     )
 

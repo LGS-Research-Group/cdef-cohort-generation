@@ -22,6 +22,11 @@ annotated-types==0.7.0
 attrs==24.2.0
     # via jsonschema
     # via referencing
+autograd==1.7.0
+    # via autograd-gamma
+    # via lifelines
+autograd-gamma==0.5.0
+    # via lifelines
 babel==2.16.0
     # via great-tables
 certifi==2024.8.30
@@ -53,6 +58,8 @@ fastexcel==0.11.6
     # via polars
 fonttools==4.54.1
     # via matplotlib
+formulaic==1.0.2
+    # via lifelines
 fsspec==2024.9.0
     # via polars
     # via pyiceberg
@@ -73,7 +80,7 @@ htmltools==0.5.3
 idna==3.10
     # via requests
 imohash==1.1.0
-    # via cdef-cohort-generation
+    # via cdef-cohort-builder
 importlib-metadata==8.5.0
     # via great-tables
 importlib-resources==6.4.5
@@ -81,6 +88,8 @@ importlib-resources==6.4.5
     # via great-tables
 iniconfig==2.0.0
     # via pytest
+interface-meta==1.3.0
+    # via formulaic
 jinja2==3.1.4
     # via altair
 jsonschema==4.23.0
@@ -89,12 +98,17 @@ jsonschema-specifications==2024.10.1
     # via jsonschema
 kiwisolver==1.4.7
     # via matplotlib
+lifelines==0.29.0
+    # via cdef-cohort-builder
 markdown-it-py==3.0.0
     # via rich
 markupsafe==3.0.1
     # via jinja2
 matplotlib==3.9.2
+    # via cdef-cohort-builder
+    # via lifelines
     # via polars
+    # via seaborn
 mdurl==0.1.2
     # via markdown-it-py
 mmh3==4.1.0
@@ -107,13 +121,20 @@ narwhals==1.9.2
     # via altair
 nest-asyncio==1.6.0
     # via polars
-numpy==2.1.2
+numpy==1.26.4
+    # via autograd
     # via contourpy
+    # via formulaic
     # via great-tables
+    # via lifelines
     # via matplotlib
     # via pandas
+    # via patsy
     # via polars
     # via pyarrow
+    # via scipy
+    # via seaborn
+    # via statsmodels
 openpyxl==3.1.5
     # via polars
 packaging==24.1
@@ -121,21 +142,34 @@ packaging==24.1
     # via hatchling
     # via htmltools
     # via matplotlib
+    # via plotly
     # via pytest
     # via setuptools-scm
+    # via statsmodels
 pandas==2.2.3
     # via adbc-driver-manager
     # via adbc-driver-sqlite
+    # via cdef-cohort-builder
+    # via formulaic
+    # via lifelines
     # via polars
+    # via seaborn
+    # via statsmodels
 pathspec==0.12.1
     # via hatchling
+patsy==0.5.6
+    # via statsmodels
 pillow==10.4.0
     # via matplotlib
+plotly==5.24.1
+    # via cdef-cohort-builder
+plotly-geo==1.0.0
+    # via cdef-cohort-builder
 pluggy==1.5.0
     # via hatchling
     # via pytest
 polars==1.9.0
-    # via cdef-cohort-generation
+    # via cdef-cohort-builder
 pyarrow==17.0.0
     # via adbc-driver-manager
     # via adbc-driver-sqlite
@@ -145,14 +179,14 @@ pyarrow==17.0.0
 pycparser==2.22 ; platform_python_implementation == 'CPython' and sys_platform == 'win32'
     # via cffi
 pydantic==2.9.2
-    # via cdef-cohort-generation
+    # via cdef-cohort-builder
     # via polars
     # via pydantic-settings
     # via pyiceberg
 pydantic-core==2.23.4
     # via pydantic
 pydantic-settings==2.5.2
-    # via cdef-cohort-generation
+    # via cdef-cohort-builder
 pygments==2.18.0
     # via rich
 pyiceberg==0.7.1
@@ -175,11 +209,19 @@ referencing==0.35.1
 requests==2.32.3
     # via pyiceberg
 rich==13.9.2
-    # via cdef-cohort-generation
+    # via cdef-cohort-builder
     # via pyiceberg
 rpds-py==0.20.0
     # via jsonschema
     # via referencing
+scipy==1.14.1
+    # via autograd-gamma
+    # via formulaic
+    # via lifelines
+    # via seaborn
+    # via statsmodels
+seaborn==0.13.2
+    # via cdef-cohort-builder
 setuptools==75.1.0
     # via setuptools-scm
     # via zope-event
@@ -187,20 +229,25 @@ setuptools==75.1.0
 setuptools-scm==8.1.0
     # via hatch-vcs
 six==1.16.0
+    # via patsy
     # via python-dateutil
 sortedcontainers==2.4.0
     # via pyiceberg
 sqlalchemy==2.0.35
     # via polars
+statsmodels==0.14.4
+    # via seaborn
 strictyaml==1.7.3
     # via pyiceberg
 tenacity==8.5.0
+    # via plotly
     # via pyiceberg
 trove-classifiers==2024.10.13
     # via hatchling
 typing-extensions==4.12.2
     # via adbc-driver-manager
     # via altair
+    # via formulaic
     # via great-tables
     # via htmltools
     # via mypy
@@ -214,6 +261,8 @@ urllib3==2.2.3
     # via requests
 varint==1.0.2
     # via imohash
+wrapt==1.16.0
+    # via formulaic
 xlsx2csv==0.8.3
     # via polars
 xlsxwriter==3.2.0

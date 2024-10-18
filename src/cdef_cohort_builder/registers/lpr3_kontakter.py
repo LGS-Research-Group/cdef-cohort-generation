@@ -1,10 +1,11 @@
 import polars as pl
 
+from cdef_cohort_builder.logging_config import logger
+from cdef_cohort_builder.registers.generic import process_register_data
 from cdef_cohort_builder.utils.config import (
     LPR3_KONTAKTER_FILES,
     LPR3_KONTAKTER_OUT,
 )
-from cdef_cohort_builder.utils.register import process_register_data
 from cdef_cohort_builder.utils.types import KwargsType
 
 LPR3_KONTAKTER_SCHEMA = {
@@ -37,6 +38,9 @@ LPR3_KONTAKTER_DEFAULTS = {
     "date_columns": ["dato_slut", "dato_start", "dato_behandling_start", "dato_indberetning"],
     "register_name": "LPR3_KONTAKTER",
 }
+
+logger.debug(f"LPR3_KONTAKTER_SCHEMA: {LPR3_KONTAKTER_SCHEMA}")
+logger.debug(f"LPR3_KONTAKER_DEFAULTS: {LPR3_KONTAKTER_DEFAULTS}")
 
 
 def process_lpr3_kontakter(**kwargs: KwargsType) -> None:

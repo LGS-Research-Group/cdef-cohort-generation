@@ -1,11 +1,13 @@
 import polars as pl
 
+from cdef_cohort_builder.logging_config import logger
+from cdef_cohort_builder.registers.generic import process_register_data
 from cdef_cohort_builder.utils.config import (
     BEF_FILES,
     BEF_OUT,
     POPULATION_FILE,
 )
-from cdef_cohort_builder.utils.register import process_register_data
+from cdef_cohort_builder.utils.logging_decorator import log_processing
 from cdef_cohort_builder.utils.types import KwargsType
 
 BEF_SCHEMA = {
@@ -73,16 +75,23 @@ BEF_DEFAULTS = {
     "longitudinal": True,
 }
 
+logger.debug(f"BEF_SCHEMA: {BEF_SCHEMA}")
+logger.debug(f"BEF_DEFAULTS: {BEF_DEFAULTS}")
 
+
+@log_processing
 def process_bef(**kwargs: KwargsType) -> None:
     process_register_data(
         input_files=BEF_FILES,
         output_file=BEF_OUT,
         schema=BEF_SCHEMA,
         defaults=BEF_DEFAULTS,
+        register_name="BEF",
         **kwargs,
     )
 
 
 if __name__ == "__main__":
+    logger.debug("Running process_bef as main")
     process_bef()
+    logger.debug("Finished running process_bef as main")

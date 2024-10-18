@@ -1,11 +1,12 @@
 import polars as pl
 
+from cdef_cohort_builder.logging_config import logger
+from cdef_cohort_builder.registers.generic import process_register_data
 from cdef_cohort_builder.utils.config import (
     IND_FILES,
     IND_OUT,
     POPULATION_FILE,
 )
-from cdef_cohort_builder.utils.register import process_register_data
 from cdef_cohort_builder.utils.types import KwargsType
 
 IND_SCHEMA = {
@@ -27,6 +28,9 @@ IND_DEFAULTS = {
     "longitudinal": True,
 }
 
+logger.debug(f"IND_SCHEMA: {IND_SCHEMA}")
+logger.debug(f"IND_DEFAULTS: {IND_DEFAULTS}")
+
 
 def process_ind(**kwargs: KwargsType) -> None:
     process_register_data(
@@ -34,6 +38,7 @@ def process_ind(**kwargs: KwargsType) -> None:
         output_file=IND_OUT,
         schema=IND_SCHEMA,
         defaults=IND_DEFAULTS,
+        register_name="IND",
         **kwargs,
     )
 

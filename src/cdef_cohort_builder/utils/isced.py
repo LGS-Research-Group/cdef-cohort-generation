@@ -2,7 +2,7 @@ import json
 
 import polars as pl
 
-from cdef_cohort_builder.logging_config import log
+from cdef_cohort_builder.logging_config import logger
 from cdef_cohort_builder.utils.config import ISCED_FILE, ISCED_MAPPING_FILE
 
 
@@ -10,10 +10,10 @@ def read_isced_data() -> pl.LazyFrame:
     """Read and process ISCED data from TSV-like file."""
     try:
         if ISCED_FILE.exists():
-            log("Reading ISCED data from existing parquet file...")
+            logger.info("Reading ISCED data from existing parquet file...")
             return pl.scan_parquet(ISCED_FILE)
 
-        log("Processing ISCED mappings from json file...")
+        logger.info("Processing ISCED mappings from json file...")
 
         # Read the JSON file
         with open(ISCED_MAPPING_FILE) as json_file:
@@ -39,9 +39,9 @@ def read_isced_data() -> pl.LazyFrame:
         # Write to parquet file
         isced_final.write_parquet(ISCED_FILE)
 
-        log("ISCED data processed and saved to parquet file.")
+        logger.info("ISCED data processed and saved to parquet file.")
 
         return isced_final.lazy()
     except Exception as e:
-        log(f"Error processing ISCED data: {e}")
+        logger.error(f"Error processing ISCED data: {e}")
         raise

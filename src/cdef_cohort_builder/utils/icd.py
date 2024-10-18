@@ -1,26 +1,32 @@
 import polars as pl
 
+from cdef_cohort_builder.logging_config import logger
 from cdef_cohort_builder.utils.config import ICD_FILE
 
 
 def read_icd_descriptions() -> pl.LazyFrame:
     """Read ICD-10 code descriptions."""
-    return pl.scan_csv(ICD_FILE)
+    logger.debug(f"Reading ICD-10 descriptions from file: {ICD_FILE}")
+    df = pl.scan_csv(ICD_FILE)
+    logger.debug(f"ICD-10 descriptions schema: {df.collect_schema()}")
+    logger.debug(f"Number of ICD-10 descriptions loaded: {df.collect().shape[0]}")
+    return df
 
 
-def apply_scd_algorithm(df: pl.LazyFrame, diagnosis_date_mapping: dict[str, str]) -> pl.LazyFrame:
+def apply_scd_algorithm_single(
+    df: pl.LazyFrame, diagnosis_columns: list[str], date_column: str, patient_id_column: str
+) -> pl.LazyFrame:
     """
     Apply the Severe Chronic Disease (SCD) algorithm to the health data.
 
     Args:
     df (pl.LazyFrame):
         The health data LazyFrame
-    diagnosis_date_mapping (dict[str, str]):
-        A dictionary mapping diagnosis column names to their corresponding date column names
-
-    Returns:
-    pl.LazyFrame: The input LazyFrame with additional columns for SCD status and first SCD date
+    diagnosis_columns (list[str]):
+        A list of column names containing diagnosis codes
     """
+    logger.debug(f"Applying SCD algorithm with diagnosis columns: {diagnosis_columns}")
+    logger.debug(f"Date column: {date_column}, Patient ID column: {patient_id_column}")
     scd_codes = [
         "D55",
         "D56",
@@ -245,23 +251,10 @@ def apply_scd_algorithm(df: pl.LazyFrame, diagnosis_date_mapping: dict[str, str]
         "Q98",
         "Q99",
     ]
-
-    is_scd_expr = pl.lit(False)
-
-    # Check for missing diagnosis columns
-    missing_columns = [
-        col for col in diagnosis_date_mapping.keys() if col not in df.collect_schema().names()
-    ]
-    if missing_columns:
-        print(f"Warning: The diagnosis columns are not found: {', '.join(missing_columns)}")
-
-    # Filter out missing columns
-    valid_mapping = {
-        k: v for k, v in diagnosis_date_mapping.items() if k in df.collect_schema().names()
-    }
-
-    for diag_col in valid_mapping.keys():
-        is_scd_expr = is_scd_expr | (
+    logger.debug(f"Number of SCD codes: {len(scd_codes)}")
+    scd_conditions = []
+    for diag_col in diagnosis_columns:
+        scd_condition = (
             pl.col(diag_col).str.to_uppercase().str.slice(1, 4).is_in(scd_codes)
             | pl.col(diag_col).str.to_uppercase().str.slice(1, 5).is_in(scd_codes)
             | (
@@ -273,39 +266,40 @@ def apply_scd_algorithm(df: pl.LazyFrame, diagnosis_date_mapping: dict[str, str]
                 & (pl.col(diag_col).str.to_uppercase().str.slice(1, 5) <= pl.lit("P949"))
             )
         )
+        scd_conditions.append(scd_condition)
 
-    result = df.with_columns(is_scd=is_scd_expr)
+    logger.debug(f"Number of SCD conditions created: {len(scd_conditions)}")
+    is_scd_expr = pl.any_horizontal(*scd_conditions)
 
-    # Determine the first SCD date
-    valid_date_columns = [
-        col for col in valid_mapping.values() if col in df.collect_schema().names()
-    ]
-    if not valid_date_columns:
-        print("Warning: No valid date columns found for SCD date determination")
-        first_scd_date_expr = pl.lit(None).alias("first_scd_date")
-    else:
-        first_scd_date_expr = (
-            pl.when(pl.col("is_scd"))
-            .then(pl.coalesce(*[pl.col(date_col) for date_col in valid_date_columns]))
-            .alias("first_scd_date")
-        )
+    result = df.with_columns(
+        [
+            is_scd_expr.alias("is_scd"),
+            pl.when(is_scd_expr).then(pl.col(date_column)).otherwise(None).alias("first_scd_date"),
+        ]
+    )
+    logger.debug("SCD conditions applied to dataframe")
 
-    result = result.with_columns(first_scd_date_expr)
+    # Aggregate to patient level
+    aggregated = result.group_by(patient_id_column).agg(
+        [
+            pl.col("is_scd").max().alias("is_scd"),
+            pl.col("first_scd_date").min().alias("first_scd_date"),
+        ]
+    )
 
-    # Log some information about the results
-    scd_count = result.filter(pl.col("is_scd")).select(pl.count()).collect()[0, 0]
-    print(f"Number of SCD cases found: {scd_count}")
+    logger.debug("Aggregated results to patient level")
+    logger.debug(f"Aggregated schema: {aggregated.collect_schema()}")
 
-    # Sample of SCD cases
-    scd_sample = result.filter(pl.col("is_scd")).head(5).collect()
-    print(f"Sample of SCD cases:\n{scd_sample}")
-
-    return result
+    return aggregated
 
 
 def add_icd_descriptions(df: pl.LazyFrame, icd_descriptions: pl.LazyFrame) -> pl.LazyFrame:
     """Add ICD-10 descriptions to the dataframe."""
-    return (
+    logger.debug("Adding ICD-10 descriptions to dataframe")
+    logger.debug(f"Input dataframe schema: {df.collect_schema()}")
+    logger.debug(f"ICD descriptions schema: {icd_descriptions.collect_schema()}")
+
+    result = (
         df.with_columns(
             [
                 pl.col("C_ADIAG").str.slice(1).alias("icd_code_adiag"),
@@ -327,3 +321,44 @@ def add_icd_descriptions(df: pl.LazyFrame, icd_descriptions: pl.LazyFrame) -> pl
         )
         .drop(["icd_code_adiag", "icd_code_diag"])
     )
+
+    logger.debug(f"Result schema after adding ICD descriptions: {result.collect_schema()}")
+    logger.debug(f"Number of rows in result: {result.collect().shape[0]}")
+
+    return result
+
+
+# You might want to add a function to test the ICD utilities
+def test_icd_utils() -> None:
+    logger.debug("Starting ICD utilities test")
+
+    # Test read_icd_descriptions
+    icd_descriptions = read_icd_descriptions()
+    logger.debug(f"ICD descriptions sample: {icd_descriptions.collect().head(5)}")
+
+    # Create a sample dataframe for testing SCD algorithm
+    sample_df = pl.DataFrame(
+        {
+            "patient_id": ["1", "2", "3"],
+            "diagnosis": ["A001", "E750", "Z000"],
+            "date": ["2021-01-01", "2021-01-02", "2021-01-03"],
+        }
+    ).lazy()
+
+    # Test apply_scd_algorithm_single
+    scd_result = apply_scd_algorithm_single(sample_df, ["diagnosis"], "date", "patient_id")
+    logger.debug(f"SCD algorithm result: {scd_result.collect()}")
+
+    # Test add_icd_descriptions
+    sample_df_with_codes = pl.DataFrame(
+        {"C_ADIAG": ["A001", "E750", "Z000"], "C_DIAG": ["B001", "F500", "Y000"]}
+    ).lazy()
+    described_df = add_icd_descriptions(sample_df_with_codes, icd_descriptions)
+    logger.debug(f"Dataframe with ICD descriptions: {described_df.collect().head()}")
+
+    logger.debug("Finished ICD utilities test")
+
+
+# Example usage of test function
+if __name__ == "__main__":
+    test_icd_utils()
