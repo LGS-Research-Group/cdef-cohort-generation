@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +17,7 @@ def process_register_data(
     output_file: Path | str,
     schema: Mapping[str, pl.DataType | type[pl.DataType]],
     defaults: dict[str, Any],
+    preprocess_func: Callable[[pl.LazyFrame], pl.LazyFrame] | None = None,
     **kwargs: KwargsType,
 ) -> None:
     """Process register data, join with population data, and save the result."""
@@ -66,6 +67,10 @@ def process_register_data(
         for col in date_columns:
             if col in data.collect_schema().names():
                 data = data.with_columns(parse_dates(col).alias(col))
+
+    # Apply preprocessing function if provided
+    if preprocess_func:
+        data = preprocess_func(data)
 
     # Special handling for UDDF register
     if register_name.lower() == "uddf":

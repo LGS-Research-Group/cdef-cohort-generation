@@ -1,6 +1,7 @@
 import polars as pl
 
 from cdef_cohort_builder.logging_config import logger
+from cdef_cohort_builder.mapping_utils import apply_mapping
 from cdef_cohort_builder.registers.generic import process_register_data
 from cdef_cohort_builder.utils.config import (
     BEF_FILES,
@@ -18,25 +19,25 @@ BEF_SCHEMA = {
     "ANTPERSF": pl.Int8,
     "ANTPERSH": pl.Int8,
     "BOP_VFRA": pl.Date,
-    "CIVST": pl.Utf8,
+    "CIVST": pl.Categorical,
     "CPRTJEK": pl.Int8,
     "CPRTYPE": pl.Int8,
     "E_FAELLE_ID": pl.Utf8,
     "FAMILIE_ID": pl.Utf8,
-    "FAMILIE_TYPE": pl.UInt8,  # ved ikke hvordan den her varible ser ud
+    "FAMILIE_TYPE": pl.UInt8,
     "FAR_ID": pl.Utf8,
-    "FM_MARK": pl.Int8,
+    "FM_MARK": pl.Categorical,
     "FOED_DAG": pl.Date,
-    "HUSTYPE": pl.Int8,
-    "IE_TYPE": pl.Utf8,  # ved ikke hvordan den her varible ser ud
-    "KOEN": pl.Utf8,  # ved ikke hvordan den her varible ser ud
-    "KOM": pl.Int8,  # 2-3 cifret kode
+    "HUSTYPE": pl.Categorical,
+    "IE_TYPE": pl.Utf8,
+    "KOEN": pl.Utf8,
+    "KOM": pl.Int8,
     "MOR_ID": pl.Utf8,
-    "OPR_LAND": pl.Utf8,  # ved ikke hvordan den har varitable ser ud
-    "PLADS": pl.Int8,
+    "OPR_LAND": pl.Utf8,
+    "PLADS": pl.Categorical,
     "PNR": pl.Utf8,
-    "REG": pl.Int8,
-    "STATSB": pl.Int8,
+    "REG": pl.Categorical,
+    "STATSB": pl.Categorical,
     "VERSION": pl.Utf8,
 }
 
@@ -78,6 +79,15 @@ BEF_DEFAULTS = {
 logger.debug(f"BEF_SCHEMA: {BEF_SCHEMA}")
 logger.debug(f"BEF_DEFAULTS: {BEF_DEFAULTS}")
 
+def preprocess_bef(df: pl.LazyFrame) -> pl.LazyFrame:
+    return df.with_columns([
+        pl.col("FM_MARK").cast(pl.Utf8).pipe(apply_mapping, "fm_mark").cast(pl.Categorical),
+        pl.col("CIVST").cast(pl.Utf8).pipe(apply_mapping, "civst").cast(pl.Categorical),
+        pl.col("HUSTYPE").cast(pl.Utf8).pipe(apply_mapping, "hustype").cast(pl.Categorical),
+        pl.col("PLADS").cast(pl.Utf8).pipe(apply_mapping, "plads").cast(pl.Categorical),
+        pl.col("REG").cast(pl.Utf8).pipe(apply_mapping, "reg").cast(pl.Categorical),
+        pl.col("STATSB").cast(pl.Utf8).pipe(apply_mapping, "statsb").cast(pl.Categorical),
+    ])
 
 @log_processing
 def process_bef(**kwargs: KwargsType) -> None:
@@ -87,9 +97,9 @@ def process_bef(**kwargs: KwargsType) -> None:
         schema=BEF_SCHEMA,
         defaults=BEF_DEFAULTS,
         register_name="BEF",
+        preprocess_func=preprocess_bef,
         **kwargs,
     )
-
 
 if __name__ == "__main__":
     logger.debug("Running process_bef as main")

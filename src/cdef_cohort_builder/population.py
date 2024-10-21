@@ -2,6 +2,7 @@ from pathlib import Path
 
 import polars as pl
 
+from cdef_cohort_builder.functions.population_summary import save_population_summary
 from cdef_cohort_builder.logging_config import log_dataframe_info, logger
 from cdef_cohort_builder.utils.config import (
     BEF_FILES,
@@ -14,7 +15,9 @@ from cdef_cohort_builder.utils.date import parse_dates
 
 def main() -> None:
     logger.info(f"Starting population processing with BEF files: {BEF_FILES}")
-    logger.info(f"Birth inclusion years: {BIRTH_INCLUSION_START_YEAR} to {BIRTH_INCLUSION_END_YEAR}")
+    logger.info(
+        f"Birth inclusion years: {BIRTH_INCLUSION_START_YEAR} to {BIRTH_INCLUSION_END_YEAR}"
+    )
 
     # Read all bef parquet files
     bef_files = BEF_FILES
@@ -127,6 +130,8 @@ def main() -> None:
     logger.info(f"Writing population data to: {POPULATION_FILE}")
     family.write_parquet(POPULATION_FILE)
     logger.info("Population data writing completed")
+    save_population_summary(family, output_dir)
+
 
 if __name__ == "__main__":
     from typing import TYPE_CHECKING

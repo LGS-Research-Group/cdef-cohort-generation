@@ -1,4 +1,5 @@
 import polars as pl
+import polars.selectors as cs
 from rich.markup import escape
 
 from cdef_cohort_builder.logging_config import logger
@@ -23,7 +24,21 @@ def validate_columns(df: pl.LazyFrame, columns: list[str]) -> bool:
     return True
 
 
-def identify_events(df: pl.LazyFrame, event_definitions: dict[str, pl.Expr]) -> pl.LazyFrame:
+def get_event_columns(event_type: str) -> tuple[str, str]:
+    """Get the correct year and PNR columns based on the event type."""
+    if event_type == "child":
+        return "year", "PNR"
+    elif event_type == "father":
+        return "FAR_year", "FATHER_PNR"
+    elif event_type == "mother":
+        return "MOR_year", "MOTHER_PNR"
+    else:
+        raise ValueError(f"Invalid event_type: {event_type}")
+
+
+def identify_events(
+    df: pl.LazyFrame, event_definitions: dict[str, pl.Expr], event_type: str
+) -> pl.LazyFrame:
     """
     Identify events in the input DataFrame based on the provided event definitions.
 
@@ -31,6 +46,7 @@ def identify_events(df: pl.LazyFrame, event_definitions: dict[str, pl.Expr]) -> 
         df (pl.LazyFrame): The input DataFrame to process.
         event_definitions (dict[str, pl.Expr]):
             A dictionary of event names and their corresponding Polars expressions.
+        event_type (str): The type of event (child, father, or mother).
 
     Returns:
         pl.LazyFrame: A LazyFrame containing identified events with columns
@@ -43,22 +59,28 @@ def identify_events(df: pl.LazyFrame, event_definitions: dict[str, pl.Expr]) -> 
     for event_name, event_expr in event_definitions.items():
         logger.info(f"Processing event: {event_name}")
 
-        # Validate columns
-        columns_used = event_expr.meta.root_names()
-        if not validate_columns(df, columns_used):
-            logger.warning(f"Skipping event '{event_name}' due to missing columns")
-            continue
-
         try:
+            # Determine the correct year and PNR columns based on the event type
+            year_col, pnr_col = get_event_columns(event_type)
+
+            # Validate columns
+            columns_used = event_expr.meta.root_names()
+            if not validate_columns(df, columns_used):
+                logger.warning(f"Skipping event '{event_name}' due to missing columns")
+                continue
+
+            # Include categorical columns in the event data
+            categorical_cols = df.select(cs.categorical()).columns
             event = (
                 df.select(
                     pl.lit(event_name).alias("event_type"),
-                    "PNR",
-                    "year",
+                    pl.col(pnr_col).alias("PNR"),
+                    pl.col(year_col).alias("year"),
                     pl.when(event_expr).then(True).otherwise(False).alias("event_occurred"),
+                    *[pl.col(col) for col in categorical_cols],
                 )
                 .filter(pl.col("event_occurred"))
-                .select("event_type", "PNR", pl.col("year"))
+                .select(["event_type", "PNR", "year"] + categorical_cols)
             )
 
             # Collect the event data
@@ -102,7 +124,7 @@ def test_event_identification(
     logger.debug(f"Sample DataFrame: \n{sample_df}")
     logger.debug(f"Sample event definitions: {sample_event_definitions}")
 
-    result = identify_events(sample_df.lazy(), sample_event_definitions)
+    result = identify_events(sample_df.lazy(), sample_event_definitions, "child")
     logger.debug(f"Test result: \n{result.collect()}")
 
 

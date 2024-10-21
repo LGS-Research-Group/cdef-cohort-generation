@@ -7,8 +7,6 @@ import polars as pl
 from pydantic import ValidationError, computed_field, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# from cdef_cohort_builder.logging_config import LogLevel, logger
-
 LogLevel = Literal["debug", "info", "warning", "error", "critical"]
 
 
@@ -26,10 +24,10 @@ class Settings(BaseSettings):
     CHILD_EVENT_DEFINITIONS: dict[str, Any] = {
         "municipality_change": (pl.col("KOM").shift() != pl.col("KOM")),
         "family_composition_change": (pl.col("FAMILIE_TYPE").shift() != pl.col("FAMILIE_TYPE")),
-        "household_size_increase": (pl.col("ANTPERSH").diff() > 0),
-        "household_size_decrease": (pl.col("ANTPERSH").diff() < 0),
-        "number_of_children_increase": (pl.col("ANTBOERNH").diff() > 0),
-        "number_of_children_decrease": (pl.col("ANTBOERNH").diff() < 0),
+        "household_size_increase": (pl.col("ANTPERSH").cast(pl.Int64).diff() > 0),
+        "household_size_decrease": (pl.col("ANTPERSH").cast(pl.Int64).diff() < 0),
+        "number_of_children_increase": (pl.col("ANTBOERNH").cast(pl.Int64).diff() > 0),
+        "number_of_children_decrease": (pl.col("ANTBOERNH").cast(pl.Int64).diff() < 0),
     }
 
     FATHER_EVENT_DEFINITIONS: dict[str, Any] = {

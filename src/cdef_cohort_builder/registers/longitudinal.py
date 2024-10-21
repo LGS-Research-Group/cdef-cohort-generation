@@ -49,6 +49,17 @@ def process_and_partition_longitudinal_data(
     Note:
         This function logs various debug and info messages throughout its execution.
     """
+    # Check if all parquet files exist
+    child_parquet = output_dir / "long" / "child.parquet"
+    mother_parquet = output_dir / "long" / "mother.parquet"
+    father_parquet = output_dir / "long" / "father.parquet"
+
+    if child_parquet.exists() and mother_parquet.exists() and father_parquet.exists():
+        logger.info("Existing parquet files found. Reading data from files.")
+        child_data = pl.scan_parquet(child_parquet)
+        mother_data = pl.scan_parquet(mother_parquet)
+        father_data = pl.scan_parquet(father_parquet)
+        return child_data, mother_data, father_data
 
     logger.info("Processing longitudinal data")
     common_params = {
@@ -124,32 +135,30 @@ def process_and_partition_longitudinal_data(
     (output_dir / "long").mkdir(parents=True, exist_ok=True)
     child_data.collect().write_parquet(output_dir / "long" / "child.parquet")
 
-    mother_data = None
-    father_data = None
+    mother_data: pl.LazyFrame | None = None
+    father_data: pl.LazyFrame | None = None
 
     # Process mother data if exists
     if cs.expand_selector(combined_data, mother_cols):
         mother_data = combined_data.select(
             cs.by_name(["PNR", "year", "month", "MOR_ID"]) | mother_cols
         )
-        log_non_null_counts(mother_data, "mother_data")
-        mother_data = mother_data.rename({"PNR": "CHILD_PNR", "MOR_ID": "MOTHER_PNR"})
-        log_non_null_counts(mother_data, "mother_data")
-        logger.debug(f"Mother data schema: {mother_data.collect_schema()}")
-        (output_dir / "parent_data").mkdir(parents=True, exist_ok=True)
-        mother_data.collect().write_parquet(output_dir / "long" / "mother.parquet")
+        if mother_data is not None:
+            mother_data = mother_data.rename({"PNR": "CHILD_PNR", "MOR_ID": "MOTHER_PNR"})
+            logger.debug(f"Mother data schema: {mother_data.collect_schema()}")
+            (output_dir / "parent_data").mkdir(parents=True, exist_ok=True)
+            mother_data.collect().write_parquet(output_dir / "long" / "mother.parquet")
 
     # Process father data if exists
     if cs.expand_selector(combined_data, father_cols):
         father_data = combined_data.select(
             cs.by_name(["PNR", "year", "month", "FAR_ID"]) | father_cols
         )
-        log_non_null_counts(father_data, "father_data")
-        father_data = father_data.rename({"PNR": "CHILD_PNR", "FAR_ID": "FATHER_PNR"})
-        log_non_null_counts(father_data, "father_data")
-        logger.debug(f"Father data schema: {father_data.collect_schema()}")
-        (output_dir / "parent_data").mkdir(parents=True, exist_ok=True)
-        father_data.collect().write_parquet(output_dir / "long" / "father.parquet")
+        if father_data is not None:
+            father_data = father_data.rename({"PNR": "CHILD_PNR", "FAR_ID": "FATHER_PNR"})
+            logger.debug(f"Father data schema: {father_data.collect_schema()}")
+            (output_dir / "parent_data").mkdir(parents=True, exist_ok=True)
+            father_data.collect().write_parquet(output_dir / "long" / "father.parquet")
 
     logger.debug(f"Child data sample:\n{child_data.limit(5).collect()}")
     if mother_data is not None:

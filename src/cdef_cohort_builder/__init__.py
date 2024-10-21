@@ -1,3 +1,3 @@
-from . import events, main, registers, settings, utils
+from . import events, main, mapping_utils, registers, settings, utils
 
-__all__ = ["main", "registers", "utils", "settings", "events"]
+__all__ = ["main", "registers", "utils", "settings", "events", "mapping_utils"]

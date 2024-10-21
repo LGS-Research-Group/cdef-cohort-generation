@@ -1,6 +1,7 @@
 import polars as pl
 
 from cdef_cohort_builder.logging_config import logger
+from cdef_cohort_builder.mapping_utils import apply_mapping
 from cdef_cohort_builder.registers.generic import process_register_data
 from cdef_cohort_builder.utils.config import (
     AKM_FILES,
@@ -14,7 +15,7 @@ AKM_SCHEMA = {
     "PNR": pl.Utf8,
     "SOCIO": pl.Int8,
     "SOCIO02": pl.Int8,
-    "SOCIO13": pl.Int8,  # <- Only one we are interested in
+    "SOCIO13": pl.Categorical,  # <- Only one we are interested in
     "CPRTJEK": pl.Utf8,
     "CPRTYPE": pl.Utf8,
     "VERSION": pl.Utf8,
@@ -32,6 +33,12 @@ logger.debug(f"AKM_SCHEMA: {AKM_SCHEMA}")
 logger.debug(f"AKM_DEFAULTS: {AKM_DEFAULTS}")
 
 
+def preprocess_akm(df: pl.LazyFrame) -> pl.LazyFrame:
+    return df.with_columns(
+        pl.col("SOCIO13").cast(pl.Utf8).pipe(apply_mapping, "socio13").cast(pl.Categorical)
+    )
+
+
 @log_processing
 def process_akm(**kwargs: KwargsType) -> None:
     """Process AKM data, join with population data, and save the result."""
@@ -41,6 +48,7 @@ def process_akm(**kwargs: KwargsType) -> None:
         schema=AKM_SCHEMA,
         defaults=AKM_DEFAULTS,
         register_name="AKM",
+        preprocess=preprocess_akm,
         **kwargs,
     )
 

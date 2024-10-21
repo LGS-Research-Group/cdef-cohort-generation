@@ -3,21 +3,17 @@ import os
 from pathlib import Path
 from typing import Any
 
-import matplotlib.pyplot as plt
 import polars as pl
 import polars.selectors as cs
 
-# Event definitions for child, father, and mother (moved to separate file or module)
-from cdef_cohort_builder.events.plotting import (
-    plot_event_heatmap,
-    plot_sankey,
-    plot_survival_curve,
-    plot_time_series,
-)
+from cdef_cohort_builder.events.plotting import save_plot_data
 from cdef_cohort_builder.events.summaries import (
-    create_interactive_dashboard,
     generate_descriptive_stats,
     generate_summary_table,
+)
+from cdef_cohort_builder.functions.population_summary import (
+    save_event_summary,
+    save_scd_summary,
 )
 from cdef_cohort_builder.logging_config import logger
 from cdef_cohort_builder.population import main as generate_population
@@ -137,7 +133,7 @@ def process_static_data(scd_data: pl.LazyFrame) -> pl.LazyFrame:
 
 
 def generate_event_summaries(events_df: pl.LazyFrame, output_dir: Path) -> None:
-    """Generate event summaries and plots."""
+    """Generate event summaries and save plot data."""
     logger.info("Generating event summaries")
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -149,30 +145,6 @@ def generate_event_summaries(events_df: pl.LazyFrame, output_dir: Path) -> None:
     summary_table = generate_summary_table(events_df)
     summary_table.write_csv(output_dir / "summary_table.csv")
 
-    # Generate and save plots
-    plot_functions = [
-        ("time_series_plot", plot_time_series),
-        ("event_heatmap", plot_event_heatmap),
-    ]
-    for plot_name, plot_func in plot_functions:
-        fig = plot_func(events_df)
-        fig.savefig(output_dir / f"{plot_name}.png")
-        plt.close(fig)
-
-    # Generate and save Sankey diagram
-    event_sequence = events_df.select(pl.col("event_type").unique()).collect().to_series().to_list()
-    sankey = plot_sankey(events_df, event_sequence)
-    sankey.write_html(output_dir / "sankey_diagram.html")
-
-    # Generate and save survival curves
-    for event_type in event_sequence:
-        survival_curve = plot_survival_curve(events_df, event_type)
-        if survival_curve is not None:
-            survival_curve.savefig(output_dir / f"survival_curve_{event_type}.png")
-            plt.close(survival_curve)
-        else:
-            logger.warning(f"Skipping survival curve for {event_type} due to insufficient data")
-
     # Generate and save descriptive statistics
     numeric_cols = cs.expand_selector(events_df, cs.numeric())
     if numeric_cols:
@@ -181,19 +153,18 @@ def generate_event_summaries(events_df: pl.LazyFrame, output_dir: Path) -> None:
     else:
         logger.warning("No numeric columns found for descriptive statistics")
 
-    # Generate and save interactive dashboard
-    dashboard = create_interactive_dashboard(events_df)
-    dashboard.write_html(output_dir / "interactive_dashboard.html")
+    # Save plot data
+    save_plot_data(events_df, output_dir / "plot_data")
 
-    logger.info(f"All visualizations and tables have been generated and saved to {output_dir}")
+    logger.info(f"All summaries and plot data have been generated and saved to {output_dir}")
 
 
 def process_events(
-    data: pl.LazyFrame, event_definitions: dict[str, Any], output_file: Path
+    data: pl.LazyFrame, event_definitions: dict[str, Any], output_file: Path, event_type: str
 ) -> pl.LazyFrame:
     """Process events for a given dataset."""
     logger.debug(f"Schema before event identification: {data.collect_schema()}")
-    events = identify_events(data, event_definitions)
+    events = identify_events(data, event_definitions, event_type)
     events.collect().write_parquet(output_file)
     return events
 
@@ -212,6 +183,7 @@ def main(output_dir: Path | None = None) -> None:
 
     # Process severe chronic disease data
     scd_data = identify_severe_chronic_disease()
+    save_scd_summary(scd_data, output_dir / "scd_summary.csv")
 
     # Process static data
     static_cohort = process_static_data(scd_data)
@@ -226,18 +198,17 @@ def main(output_dir: Path | None = None) -> None:
     events = []
     events.append(
         process_events(
-            child_data,
-            CHILD_EVENT_DEFINITIONS,
-            output_dir / "child_events.parquet",
+            child_data, CHILD_EVENT_DEFINITIONS, output_dir / "child_events.parquet", "child"
         )
     )
 
     if father_data is not None:
         events.append(
             process_events(
-                father_data.with_columns(pl.col("FATHER_PNR").alias("PNR")),
+                father_data,
                 FATHER_EVENT_DEFINITIONS,
                 output_dir / "father_events.parquet",
+                "father",
             )
         )
     else:
@@ -246,9 +217,10 @@ def main(output_dir: Path | None = None) -> None:
     if mother_data is not None:
         events.append(
             process_events(
-                mother_data.with_columns(pl.col("MOTHER_PNR").alias("PNR")),
+                mother_data,
                 MOTHER_EVENT_DEFINITIONS,
                 output_dir / "mother_events.parquet",
+                "mother",
             )
         )
     else:
@@ -257,6 +229,7 @@ def main(output_dir: Path | None = None) -> None:
     # Generate event summaries
     all_events = pl.concat(events)
     generate_event_summaries(all_events, output_dir / "event_summaries")
+    save_event_summary(all_events, output_dir / "event_summary.csv")
 
     logger.info("Cohort generation process completed")
 
