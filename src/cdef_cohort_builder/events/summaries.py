@@ -4,7 +4,20 @@ import polars as pl
 
 
 def generate_summary_table(df: pl.LazyFrame) -> pl.DataFrame:
-    """Generate an enhanced summary table of event occurrences."""
+    """
+    Generate an enhanced summary table of event occurrences.
+
+    This function calculates event counts, percentage of cohort, and percentage of total events
+    for each event type in the given DataFrame.
+
+    Args:
+        df (pl.LazyFrame): A LazyFrame containing event data with columns 'event_type' and 'PNR'.
+
+    Returns:
+        pl.DataFrame:
+            A DataFrame with columns 'event_type', 'count', '% of Cohort', and '% of Total Events',
+                      sorted by count in descending order.
+    """
     event_counts = df.group_by("event_type").agg(pl.count("PNR").alias("count"))
     total_cohort = df.select(pl.n_unique("PNR")).collect().item()
 
@@ -19,7 +32,18 @@ def generate_summary_table(df: pl.LazyFrame) -> pl.DataFrame:
 
 
 def generate_descriptive_stats(df: pl.LazyFrame, numeric_cols: list[str]) -> pl.DataFrame:
-    """Generate detailed descriptive statistics for numerical variables."""
+    """
+    Generate detailed descriptive statistics for numerical variables.
+
+    This function calculates various statistical measures for the specified numeric columns.
+
+    Args:
+        df (pl.LazyFrame): A LazyFrame containing the data.
+        numeric_cols (list[str]): A list of column names for which to calculate statistics.
+
+    Returns:
+        pl.DataFrame: A transposed DataFrame with descriptive statistics for each numeric column.
+    """
     # Select only the numeric columns and collect
     numeric_df = df.select(numeric_cols).collect()
 
@@ -31,26 +55,38 @@ def generate_descriptive_stats(df: pl.LazyFrame, numeric_cols: list[str]) -> pl.
 
 
 def create_interactive_dashboard(df: pl.LazyFrame) -> go.Figure:
-    """Create an enhanced interactive dashboard with multiple visualizations."""
+    """
+    Create an enhanced interactive dashboard with multiple visualizations.
+
+    This function generates a scatter plot dashboard showing event counts over years,
+    with interactive features like hover data and color-coding by event type.
+
+    Args:
+        df (pl.LazyFrame): A LazyFrame containing event data with columns
+        'year', 'event_type', and 'PNR'.
+
+    Returns:
+        go.Figure: A Plotly Figure object representing the interactive dashboard.
+    """
     # Collect necessary data for the dashboard
     dashboard_data = df.select(
         [
-            "event_year",
+            "year",
             "event_type",
             "PNR",
-            pl.count("PNR").over(["event_year", "event_type"]).alias("count"),
+            pl.count("PNR").over(["year", "event_type"]).alias("count"),
         ]
     ).collect()
 
     fig = px.scatter(
         dashboard_data.to_pandas(),
-        x="event_year",
+        x="year",
         y="event_type",
         color="event_type",
         size="count",
         hover_data=["PNR"],
         title="Interactive Event Dashboard",
-        labels={"event_year": "Year", "event_type": "Event Type", "count": "Event Count"},
+        labels={"year": "Year", "event_type": "Event Type", "count": "Event Count"},
     )
 
     fig.update_layout(
@@ -64,11 +100,24 @@ def create_interactive_dashboard(df: pl.LazyFrame) -> go.Figure:
 
 
 def generate_event_frequency_analysis(df: pl.LazyFrame) -> dict[str, pl.DataFrame]:
-    """Analyze event frequencies over time and by demographic factors."""
+    """
+    Analyze event frequencies over time and by demographic factors.
+
+    This function generates two frequency analyses: one by year and another by age group.
+
+    Args:
+        df (pl.LazyFrame): A LazyFrame containing event data with columns
+        'year', 'event_type', 'PNR', and 'age'.
+
+    Returns:
+        dict[str, pl.DataFrame]: A dictionary containing two DataFrames:
+            - 'yearly_frequency': Event frequencies by year and event type.
+            - 'age_group_frequency': Event frequencies by age group and event type.
+    """
     yearly_freq = (
-        df.group_by(["event_year", "event_type"])
+        df.group_by(["year", "event_type"])
         .agg(pl.count("PNR").alias("event_count"))
-        .sort(["event_year", "event_count"], descending=[False, True])
+        .sort(["year", "event_count"], descending=[False, True])
         .collect()
     )
 

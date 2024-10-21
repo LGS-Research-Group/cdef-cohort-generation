@@ -7,7 +7,21 @@ from cdef_cohort_builder.utils.config import ISCED_FILE, ISCED_MAPPING_FILE
 
 
 def read_isced_data() -> pl.LazyFrame:
-    """Read and process ISCED data from TSV-like file."""
+    """
+    Read and process ISCED (International Standard Classification of Education) data.
+
+    This function attempts to read ISCED data from a pre-existing parquet file.
+    If the file doesn't exist, it processes the data from a JSON file, saves it as a parquet file,
+    and returns the processed data.
+
+    Returns:
+        pl.LazyFrame:
+            A Polars LazyFrame containing the ISCED data with columns 'HFAUDD' and 'EDU_LVL'.
+
+    Raises:
+        Exception: If there's an error in reading or processing the ISCED data.
+
+    """
     try:
         if ISCED_FILE.exists():
             logger.info("Reading ISCED data from existing parquet file...")

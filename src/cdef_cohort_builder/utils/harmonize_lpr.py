@@ -7,7 +7,17 @@ from cdef_cohort_builder.utils.date import parse_dates
 def integrate_lpr2_components(
     lpr_adm: pl.LazyFrame, lpr_diag: pl.LazyFrame, lpr_bes: pl.LazyFrame
 ) -> pl.LazyFrame:
-    """Integrate LPR2 components: adm, diag, and bes."""
+    """
+    Integrate LPR2 components: adm, diag, and bes.
+
+    Args:
+        lpr_adm (pl.LazyFrame): LazyFrame containing LPR2 admission data.
+        lpr_diag (pl.LazyFrame): LazyFrame containing LPR2 diagnosis data.
+        lpr_bes (pl.LazyFrame): LazyFrame containing LPR2 treatment data.
+
+    Returns:
+        pl.LazyFrame: Integrated LPR2 data.
+    """
     logger.debug("Starting LPR2 component integration")
     logger.debug(f"LPR2 ADM schema: {lpr_adm.collect_schema()}")
     logger.debug(f"LPR2 DIAG schema: {lpr_diag.collect_schema()}")
@@ -25,7 +35,16 @@ def integrate_lpr2_components(
 def integrate_lpr3_components(
     lpr3_kontakter: pl.LazyFrame, lpr3_diagnoser: pl.LazyFrame
 ) -> pl.LazyFrame:
-    """Integrate LPR3 components: kontakter and diagnoser."""
+    """
+    Integrate LPR3 components: kontakter and diagnoser.
+
+    Args:
+        lpr3_kontakter (pl.LazyFrame): LazyFrame containing LPR3 contact data.
+        lpr3_diagnoser (pl.LazyFrame): LazyFrame containing LPR3 diagnosis data.
+
+    Returns:
+        pl.LazyFrame: Integrated LPR3 data.
+    """
     logger.debug("Starting LPR3 component integration")
     logger.debug(f"LPR3 kontakter schema: {lpr3_kontakter.collect_schema()}")
     logger.debug(f"LPR3 diagnoser schema: {lpr3_diagnoser.collect_schema()}")
@@ -41,7 +60,16 @@ def integrate_lpr3_components(
 def harmonize_health_data(
     df1: pl.LazyFrame, df2: pl.LazyFrame
 ) -> tuple[pl.LazyFrame, pl.LazyFrame]:
-    """Harmonize column names of two health data dataframes (LPR2 and LPR3)."""
+    """
+    Harmonize column names of two health data dataframes (LPR2 and LPR3).
+
+    Args:
+        df1 (pl.LazyFrame): LazyFrame containing LPR2 data.
+        df2 (pl.LazyFrame): LazyFrame containing LPR3 data.
+
+    Returns:
+        tuple[pl.LazyFrame, pl.LazyFrame]: Tuple containing harmonized LPR2 and LPR3 data.
+    """
     logger.debug("Starting health data harmonization")
     logger.debug(f"Input DF1 (LPR2) schema: {df1.collect_schema()}")
     logger.debug(f"Input DF2 (LPR3) schema: {df2.collect_schema()}")
@@ -106,7 +134,16 @@ def harmonize_health_data(
 
 
 def combine_harmonized_data(df1: pl.LazyFrame, df2: pl.LazyFrame) -> pl.LazyFrame:
-    """Combine the harmonized LPR2 and LPR3 dataframes."""
+    """
+    Combine the harmonized LPR2 and LPR3 dataframes.
+
+    Args:
+        df1 (pl.LazyFrame): Harmonized LPR2 data.
+        df2 (pl.LazyFrame): Harmonized LPR3 data.
+
+    Returns:
+        pl.LazyFrame: Combined and harmonized health data.
+    """
     logger.debug("Starting combination of harmonized data")
     logger.debug(f"Input DF1 schema: {df1.collect_schema()}")
     logger.debug(f"Input DF2 schema: {df2.collect_schema()}")
@@ -145,6 +182,12 @@ def combine_harmonized_data(df1: pl.LazyFrame, df2: pl.LazyFrame) -> pl.LazyFram
 
 # You might want to add a function to test the harmonization process
 def test_harmonization() -> None:
+    """
+    Test the harmonization process using sample data for LPR2 and LPR3.
+
+    This function creates sample dataframes, harmonizes them, and combines the results
+    to demonstrate the harmonization process.
+    """
     logger.debug("Starting harmonization test")
 
     # Create sample dataframes for LPR2 and LPR3

@@ -22,3 +22,8 @@ logs/
 
 # config
 .env
+
+theme/
+mary.css
+mary.scss
+PRESENTATION*

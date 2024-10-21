@@ -1,23 +1,55 @@
 import polars as pl
-import polars.selectors as cs
+from rich.markup import escape
 
-from cdef_cohort_builder.logging_config import log, logger
+from cdef_cohort_builder.logging_config import logger
+
+
+def validate_columns(df: pl.LazyFrame, columns: list[str]) -> bool:
+    """
+    Validate if all required columns are present in the DataFrame.
+
+    Args:
+        df (pl.LazyFrame): The input DataFrame to validate.
+        columns (list[str]): List of column names to check for.
+
+    Returns:
+        bool: True if all columns are present, False otherwise.
+    """
+    schema = df.collect_schema()
+    missing_columns = [col for col in columns if col not in schema]
+    if missing_columns:
+        logger.warning(f"Missing columns: {', '.join(missing_columns)}")
+        return False
+    return True
 
 
 def identify_events(df: pl.LazyFrame, event_definitions: dict[str, pl.Expr]) -> pl.LazyFrame:
-    """Identify events based on provided definitions."""
-    logger.debug(f"Starting event identification with {len(event_definitions)} event definitions")
+    """
+    Identify events in the input DataFrame based on the provided event definitions.
+
+    Args:
+        df (pl.LazyFrame): The input DataFrame to process.
+        event_definitions (dict[str, pl.Expr]):
+            A dictionary of event names and their corresponding Polars expressions.
+
+    Returns:
+        pl.LazyFrame: A LazyFrame containing identified events with columns
+        'event_type', 'PNR', and 'year'.
+    """
+    logger.info(f"Starting event identification with {len(event_definitions)} event definitions")
     logger.debug(f"Input DataFrame schema: {df.collect_schema()}")
 
     events = []
     for event_name, event_expr in event_definitions.items():
-        logger.debug(f"Processing event: {event_name}")
-        try:
-            # Ensure PNR and year columns are present
-            required_cols = cs.by_name(["PNR", "year"])
-            if not cs.expand_selector(df, required_cols):
-                raise ValueError("Required columns 'PNR' and 'year' not found in DataFrame")
+        logger.info(f"Processing event: {event_name}")
 
+        # Validate columns
+        columns_used = event_expr.meta.root_names()
+        if not validate_columns(df, columns_used):
+            logger.warning(f"Skipping event '{event_name}' due to missing columns")
+            continue
+
+        try:
             event = (
                 df.select(
                     pl.lit(event_name).alias("event_type"),
@@ -26,37 +58,53 @@ def identify_events(df: pl.LazyFrame, event_definitions: dict[str, pl.Expr]) -> 
                     pl.when(event_expr).then(True).otherwise(False).alias("event_occurred"),
                 )
                 .filter(pl.col("event_occurred"))
-                .select("event_type", "PNR", pl.col("year").alias("event_year"))
+                .select("event_type", "PNR", pl.col("year"))
             )
+
+            # Collect the event data
+            event_details = event.collect()
+
+            # Log event details without using markup
+            logger.info(f"Event: {event_name}")
+            logger.info(f"Number of occurrences: {event_details.shape[0]}")
+            logger.info(f"Sample of identified events:\n{event_details.head()}")
+
             events.append(event)
             logger.debug(f"Successfully processed event: {event_name}")
-            logger.debug(f"Event schema: {event.collect_schema()}")
         except Exception as e:
-            log(f"Warning: Error processing event '{event_name}': {str(e)}")
-            logger.debug(f"Error details for event '{event_name}': {str(e)}", exc_info=True)
+            # Escape the error message to prevent markup interpretation
+            error_msg = escape(str(e))
+            logger.error(f"Error processing event '{event_name}': {error_msg}", exc_info=True)
 
     if not events:
-        log("Warning: No events could be identified")
-        logger.debug("Returning empty DataFrame as no events were identified")
-        return pl.DataFrame(
-            schema={"event_type": pl.Utf8, "PNR": pl.Utf8, "event_year": pl.Int64}
-        ).lazy()
+        logger.warning("No events could be identified")
+        return pl.DataFrame(schema={"event_type": pl.Utf8, "PNR": pl.Utf8, "year": pl.Int64}).lazy()
 
     result = pl.concat(events)
-    logger.debug(f"Final concatenated events schema: {result.collect_schema()}")
     logger.debug(f"Total number of identified events: {result.collect().shape[0]}")
-
     return result
+
 
 def test_event_identification(
     sample_df: pl.DataFrame, sample_event_definitions: dict[str, pl.Expr]
 ) -> None:
+    """
+    Test the event identification function with sample data.
+
+    Args:
+        sample_df (pl.DataFrame): A sample DataFrame for testing.
+        sample_event_definitions (dict[str, pl.Expr]): Sample event definitions for testing.
+
+    Returns:
+        None
+    """
     logger.debug("Starting test event identification")
     logger.debug(f"Sample DataFrame: \n{sample_df}")
     logger.debug(f"Sample event definitions: {sample_event_definitions}")
 
     result = identify_events(sample_df.lazy(), sample_event_definitions)
     logger.debug(f"Test result: \n{result.collect()}")
+
 
 # Example usage of test function
 if __name__ == "__main__":

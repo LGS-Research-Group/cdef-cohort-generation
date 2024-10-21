@@ -5,7 +5,13 @@ from cdef_cohort_builder.utils.config import ICD_FILE
 
 
 def read_icd_descriptions() -> pl.LazyFrame:
-    """Read ICD-10 code descriptions."""
+    """
+    Read ICD-10 code descriptions from a CSV file.
+
+    Returns:
+        pl.LazyFrame: A LazyFrame containing ICD-10 codes and their descriptions.
+
+    """
     logger.debug(f"Reading ICD-10 descriptions from file: {ICD_FILE}")
     df = pl.scan_csv(ICD_FILE)
     logger.debug(f"ICD-10 descriptions schema: {df.collect_schema()}")
@@ -20,10 +26,13 @@ def apply_scd_algorithm_single(
     Apply the Severe Chronic Disease (SCD) algorithm to the health data.
 
     Args:
-    df (pl.LazyFrame):
-        The health data LazyFrame
-    diagnosis_columns (list[str]):
-        A list of column names containing diagnosis codes
+        df (pl.LazyFrame): The health data LazyFrame.
+        diagnosis_columns (list[str]): A list of column names containing diagnosis codes.
+        date_column (str): The name of the column containing dates.
+        patient_id_column (str): The name of the column containing patient IDs.
+
+    Returns:
+        pl.LazyFrame: A LazyFrame with SCD flags and dates aggregated at the patient level.
     """
     logger.debug(f"Applying SCD algorithm with diagnosis columns: {diagnosis_columns}")
     logger.debug(f"Date column: {date_column}, Patient ID column: {patient_id_column}")
@@ -294,7 +303,17 @@ def apply_scd_algorithm_single(
 
 
 def add_icd_descriptions(df: pl.LazyFrame, icd_descriptions: pl.LazyFrame) -> pl.LazyFrame:
-    """Add ICD-10 descriptions to the dataframe."""
+    """
+    Add ICD-10 descriptions to the dataframe.
+
+    Args:
+        df (pl.LazyFrame): The input LazyFrame containing ICD codes.
+        icd_descriptions (pl.LazyFrame): A LazyFrame with ICD-10 codes and their descriptions.
+
+    Returns:
+        pl.LazyFrame:
+            A LazyFrame with added ICD-10 descriptions for both admission and main diagnoses.
+    """
     logger.debug("Adding ICD-10 descriptions to dataframe")
     logger.debug(f"Input dataframe schema: {df.collect_schema()}")
     logger.debug(f"ICD descriptions schema: {icd_descriptions.collect_schema()}")
@@ -330,6 +349,15 @@ def add_icd_descriptions(df: pl.LazyFrame, icd_descriptions: pl.LazyFrame) -> pl
 
 # You might want to add a function to test the ICD utilities
 def test_icd_utils() -> None:
+    """
+    Test the ICD utilities functions.
+
+    This function runs a series of tests on the ICD utility functions:
+    - Tests read_icd_descriptions()
+    - Tests apply_scd_algorithm_single()
+    - Tests add_icd_descriptions()
+
+    """
     logger.debug("Starting ICD utilities test")
 
     # Test read_icd_descriptions

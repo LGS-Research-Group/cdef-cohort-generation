@@ -41,6 +41,7 @@ cloudpickle==3.0.0
     # via polars
 colorama==0.4.6 ; platform_system == 'Windows'
     # via click
+    # via tqdm
 commonmark==0.9.1
     # via great-tables
 connectorx==0.3.3
@@ -218,6 +219,8 @@ strictyaml==1.7.3
 tenacity==8.5.0
     # via plotly
     # via pyiceberg
+tqdm==4.66.5
+    # via cdef-cohort-builder
 typing-extensions==4.12.2
     # via adbc-driver-manager
     # via altair

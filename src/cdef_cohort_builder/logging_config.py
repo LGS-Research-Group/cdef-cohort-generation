@@ -3,6 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
+import polars as pl
 from rich.console import Console
 from rich.logging import RichHandler
 
@@ -68,7 +69,7 @@ def setup_logging(log_level: LogLevel = "info") -> RichLogger:
     logger = RichLogger("cdef_cohort_builder", log_file)
 
     # Convert string log level to logging module constant
-    numeric_level = getattr(logging, log_level.upper())
+    numeric_level = getattr(logging, str(log_level.upper()))
 
     # Set the level for both handlers
     for handler in logger.logger.handlers:
@@ -88,3 +89,19 @@ logger = setup_logging()
 
 def log(message: str, level: LogLevel = "info", **kwargs: Any) -> None:
     logger.log(message, level, **kwargs)
+
+
+def log_non_null_counts(df: pl.LazyFrame, name: str) -> None:
+    counts = df.select(pl.all().is_not_null().sum()).collect().to_dict()
+    logger.debug(f"Non-null counts for {name}:")
+    for col, count in counts.items():
+        logger.debug(f"  {col}: {count[0]}")
+
+
+def log_dataframe_info(df: pl.LazyFrame | pl.DataFrame, name: str) -> None:
+    if isinstance(df, pl.LazyFrame):
+        df = df.collect()
+    logger.debug(f"{name} shape: {df.shape}")
+    logger.debug(f"{name} schema: {df.schema}")
+    logger.debug(f"{name} null counts:\n{df.null_count()}")
+    logger.debug(f"{name} sample (5 rows):\n{df.head(5)}")

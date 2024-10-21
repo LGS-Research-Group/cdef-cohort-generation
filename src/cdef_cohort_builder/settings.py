@@ -23,43 +23,46 @@ class Settings(BaseSettings):
     BIRTH_INCLUSION_END_YEAR: int = 2020
     LOG_LEVEL: LogLevel = "info"
 
-    EVENT_DEFINITIONS: dict[str, Any] = {
-        # Existing events
-        "father_education_change": (pl.col("FAR_EDU_LVL").shift() != pl.col("FAR_EDU_LVL")),
-        "mother_education_change": (pl.col("MOR_EDU_LVL").shift() != pl.col("MOR_EDU_LVL")),
-        "father_income_change": (pl.col("FAR_PERINDKIALT_13").cast(pl.Float64).diff() != 0),
-        "mother_income_change": (pl.col("MOR_PERINDKIALT_13").cast(pl.Float64).diff() != 0),
+    CHILD_EVENT_DEFINITIONS: dict[str, Any] = {
         "municipality_change": (pl.col("KOM").shift() != pl.col("KOM")),
-        # New events
         "family_composition_change": (pl.col("FAMILIE_TYPE").shift() != pl.col("FAMILIE_TYPE")),
-        "marital_status_change": (pl.col("CIVST").shift() != pl.col("CIVST")),
-        "significant_income_increase_father": (
-            pl.col("FAR_PERINDKIALT_13").cast(pl.Float64).pct_change() > 0.10
-        ),
-        "significant_income_increase_mother": (
-            pl.col("MOR_PERINDKIALT_13").cast(pl.Float64).pct_change() > 0.10
-        ),
-        "significant_income_decrease_father": (
-            pl.col("FAR_PERINDKIALT_13").cast(pl.Float64).pct_change() < -0.10
-        ),
-        "significant_income_decrease_mother": (
-            pl.col("MOR_PERINDKIALT_13").cast(pl.Float64).pct_change() < -0.10
-        ),
-        "father_employment_status_change": (
-            pl.col("FAR_BESKST13").shift() != pl.col("FAR_BESKST13")
-        ),
-        "mother_employment_status_change": (
-            pl.col("MOR_BESKST13").shift() != pl.col("MOR_BESKST13")
-        ),
-        "father_job_change": (pl.col("FAR_STILL").shift() != pl.col("FAR_STILL")),
-        "mother_job_change": (pl.col("MOR_STILL").shift() != pl.col("MOR_STILL")),
         "household_size_increase": (pl.col("ANTPERSH").diff() > 0),
         "household_size_decrease": (pl.col("ANTPERSH").diff() < 0),
         "number_of_children_increase": (pl.col("ANTBOERNH").diff() > 0),
         "number_of_children_decrease": (pl.col("ANTBOERNH").diff() < 0),
+    }
+
+    FATHER_EVENT_DEFINITIONS: dict[str, Any] = {
+        "father_education_change": (pl.col("FAR_EDU_LVL").shift() != pl.col("FAR_EDU_LVL")),
+        "father_income_change": (pl.col("FAR_PERINDKIALT_13").cast(pl.Float64).diff() != 0),
+        "significant_income_increase_father": (
+            pl.col("FAR_PERINDKIALT_13").cast(pl.Float64).pct_change() > 0.10
+        ),
+        "significant_income_decrease_father": (
+            pl.col("FAR_PERINDKIALT_13").cast(pl.Float64).pct_change() < -0.10
+        ),
+        "father_employment_status_change": (
+            pl.col("FAR_BESKST13").shift() != pl.col("FAR_BESKST13")
+        ),
+        "father_job_change": (pl.col("FAR_STILL").shift() != pl.col("FAR_STILL")),
         "father_socioeconomic_status_change": (
             pl.col("FAR_SOCIO13").shift() != pl.col("FAR_SOCIO13")
         ),
+    }
+
+    MOTHER_EVENT_DEFINITIONS: dict[str, Any] = {
+        "mother_education_change": (pl.col("MOR_EDU_LVL").shift() != pl.col("MOR_EDU_LVL")),
+        "mother_income_change": (pl.col("MOR_PERINDKIALT_13").cast(pl.Float64).diff() != 0),
+        "significant_income_increase_mother": (
+            pl.col("MOR_PERINDKIALT_13").cast(pl.Float64).pct_change() > 0.10
+        ),
+        "significant_income_decrease_mother": (
+            pl.col("MOR_PERINDKIALT_13").cast(pl.Float64).pct_change() < -0.10
+        ),
+        "mother_employment_status_change": (
+            pl.col("MOR_BESKST13").shift() != pl.col("MOR_BESKST13")
+        ),
+        "mother_job_change": (pl.col("MOR_STILL").shift() != pl.col("MOR_STILL")),
         "mother_socioeconomic_status_change": (
             pl.col("MOR_SOCIO13").shift() != pl.col("MOR_SOCIO13")
         ),

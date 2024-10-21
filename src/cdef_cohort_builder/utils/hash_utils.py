@@ -14,7 +14,15 @@ T = TypeVar("T")
 
 
 def calculate_file_hash(file_path: Path) -> str:
-    """Calculate the hash of a file using imohash."""
+    """
+    Calculate the hash of a file using imohash.
+
+    Args:
+        file_path (Path): The path to the file to be hashed.
+
+    Returns:
+        str: The calculated hash value of the file.
+    """
     logger.debug(f"Calculating hash for file: {file_path}")
     hash_value = str(hashfile(str(file_path), hexdigest=True))
     logger.debug(f"Hash calculated: {hash_value}")
@@ -22,7 +30,15 @@ def calculate_file_hash(file_path: Path) -> str:
 
 
 def get_file_hashes(file_paths: list[Path]) -> dict[str, str]:
-    """Calculate hashes for a list of files."""
+    """
+    Calculate hashes for a list of files.
+
+    Args:
+        file_paths (list[Path]): A list of file paths to calculate hashes for.
+
+    Returns:
+        dict[str, str]: A dictionary mapping file paths to their hash values.
+    """
     logger.debug(f"Calculating hashes for {len(file_paths)} files")
     hashes = {str(file_path): calculate_file_hash(file_path) for file_path in file_paths}
     # logger.debug(f"Hashes calculated: {hashes}")
@@ -31,7 +47,13 @@ def get_file_hashes(file_paths: list[Path]) -> dict[str, str]:
 
 
 def load_hash_file() -> dict[str, dict[str, str]]:
-    """Load the hash file if it exists, otherwise return an empty dict."""
+    """
+    Load the hash file if it exists, otherwise return an empty dict.
+
+    Returns:
+        dict[str, dict[str, str]]:
+            The loaded hash data or an empty dictionary if the file doesn't exist.
+    """
     logger.debug(f"Attempting to load hash file from: {HASH_FILE_PATH}")
     if HASH_FILE_PATH.exists():
         with HASH_FILE_PATH.open("r") as f:
@@ -43,7 +65,12 @@ def load_hash_file() -> dict[str, dict[str, str]]:
 
 
 def save_hash_file(hash_data: dict[str, dict[str, str]]) -> None:
-    """Save the hash data to the hash file."""
+    """
+    Save the hash data to the hash file.
+
+    Args:
+        hash_data (dict[str, dict[str, str]]): The hash data to be saved.
+    """
     logger.debug(f"Saving hash data to file: {HASH_FILE_PATH}")
     with HASH_FILE_PATH.open("w") as f:
         json.dump(hash_data, f, indent=2)
@@ -54,9 +81,19 @@ def process_with_hash_check(process_func: Callable[..., Any], *args: Any, **kwar
     """
     Wrapper function to handle hash checking and processing.
 
+    This function checks if the input files have changed since the last processing.
+    If they haven't, it skips processing.
+    Otherwise, it processes the data and updates the hash information.
+
     Args:
-    process_func: The function to call for processing (e.g., process_lpr_adm)
-    *args, **kwargs: Additional arguments to pass to process_func
+        process_func (Callable[..., Any]):
+            The function to call for processing (e.g., process_lpr_adm).
+        *args: Additional positional arguments to pass to process_func.
+        **kwargs: Additional keyword arguments to pass to process_func.
+
+    Raises:
+        ValueError: If input or output file information cannot be found
+        for the given process function.
     """
     logger.debug(f"Starting process_with_hash_check for function: {process_func.__name__}")
 
@@ -119,6 +156,12 @@ def process_with_hash_check(process_func: Callable[..., Any], *args: Any, **kwar
 
 # You might want to add a function to test the hash utilities
 def test_hash_utils() -> None:
+    """
+    Test the hash utility functions.
+
+    This function creates a test file, calculates its hash, tests the get_file_hashes function,
+    and tests saving and loading the hash file. It then cleans up the test files.
+    """
     logger.debug("Starting hash utilities test")
 
     # Create a test file

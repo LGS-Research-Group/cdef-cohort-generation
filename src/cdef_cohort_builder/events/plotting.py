@@ -1,4 +1,4 @@
-import logging
+from logging import getLogger
 
 import matplotlib
 
@@ -11,18 +11,32 @@ import seaborn as sns
 from lifelines import KaplanMeierFitter
 from matplotlib.figure import Figure
 
-logging.getLogger("matplotlib.font_manager").disabled = True
+from cdef_cohort_builder.logging_config import logger
+
+getLogger("matplotlib.font_manager").disabled = True
 
 
 def plot_time_series(df: pl.LazyFrame) -> Figure:
-    """Create an enhanced time series plot of event occurrences."""
+    """
+    Create a time series plot of event occurrences.
+
+    This function takes a LazyFrame containing event data and generates a time series plot
+    showing the number of occurrences for each event type over time.
+
+    Args:
+        df (pl.LazyFrame): A LazyFrame containing event data with 'year' and 'event_type' columns.
+
+    Returns:
+        Figure: A matplotlib Figure object containing the time series plot.
+    """
     event_counts = (
-        df.group_by(["event_year", "event_type"])
+        df.with_columns(pl.col("year").cast(pl.Int32))  # Cast year to Int32
+        .group_by(["year", "event_type"])
         .count()
         .collect()  # Collect before pivot
         .pivot(
             values="count",
-            index="event_year",
+            index="year",
             on="event_type",
             aggregate_function="first",
         )
@@ -31,7 +45,7 @@ def plot_time_series(df: pl.LazyFrame) -> Figure:
 
     fig, ax = plt.subplots(figsize=(14, 8))
     for column in event_counts.columns[1:]:
-        ax.plot(event_counts["event_year"], event_counts[column], label=column, marker="o")
+        ax.plot(event_counts["year"], event_counts[column], label=column, marker="o")
 
     ax.set_title("Event Occurrences Over Time", fontsize=16)
     ax.set_xlabel("Year", fontsize=12)
@@ -43,12 +57,23 @@ def plot_time_series(df: pl.LazyFrame) -> Figure:
 
 
 def plot_event_heatmap(df: pl.LazyFrame) -> Figure:
-    """Create an enhanced heatmap of event co-occurrences."""
+    """
+    Create a heatmap of event co-occurrences.
+
+    This function generates a heatmap showing the correlation between different event types
+    based on their co-occurrence in the dataset.
+
+    Args:
+        df (pl.LazyFrame): A LazyFrame containing event data with 'PNR' and 'event_type' columns.
+
+    Returns:
+        Figure: A matplotlib Figure object containing the heatmap.
+    """
     # Collect and pivot the data
     event_pivot = (
         df.collect()  # Collect before pivot
         .pivot(
-            values="event_year",
+            values="year",
             index="PNR",
             on="event_type",
             aggregate_function="len",
@@ -71,7 +96,20 @@ def plot_event_heatmap(df: pl.LazyFrame) -> Figure:
 
 
 def plot_stacked_bar(df: pl.LazyFrame, group_col: str) -> Figure:
-    """Create an enhanced stacked bar chart of event distributions across groups."""
+    """
+    Create a stacked bar chart of event distributions across groups.
+
+    This function generates a stacked bar chart showing the distribution of event types
+    across different groups specified by the group_col parameter.
+
+    Args:
+        df (pl.LazyFrame):
+        A LazyFrame containing event data with 'event_type' and the specified group column.
+        group_col (str): The name of the column to use for grouping.
+
+    Returns:
+        Figure: A matplotlib Figure object containing the stacked bar chart.
+    """
     grouped = (
         df.group_by([group_col, "event_type"])
         .count()
@@ -101,11 +139,23 @@ def plot_stacked_bar(df: pl.LazyFrame, group_col: str) -> Figure:
 
 
 def plot_sankey(df: pl.LazyFrame, event_sequence: list[str]) -> go.Figure:
-    """Create a Sankey diagram for a sequence of events."""
+    """
+    Create a Sankey diagram for a sequence of events.
+
+    This function generates a Sankey diagram showing the flow of events in the specified sequence.
+
+    Args:
+        df (pl.LazyFrame):
+        A LazyFrame containing event data with 'PNR', 'event_type', and 'year' columns.
+        event_sequence (list[str]): A list of event types in the desired sequence.
+
+    Returns:
+        go.Figure: A plotly Figure object containing the Sankey diagram.
+    """
     # Process the data to get the event flows
     flows = (
-        df.select(["PNR", "event_type", "event_year"])
-        .rename({"event_year": "year"})
+        df.select(["PNR", "event_type", "year"])
+        .rename({"year": "year"})
         .sort(["PNR", "year"])
         .group_by("PNR")
         .agg(pl.col("event_type").alias("event_sequence"))
@@ -149,34 +199,60 @@ def plot_sankey(df: pl.LazyFrame, event_sequence: list[str]) -> go.Figure:
 
 
 def plot_survival_curve(df: pl.LazyFrame, event_type: str) -> Figure | None:
-    """Create an enhanced survival curve for a specific event."""
-    event_df = df.filter(pl.col("event_type") == event_type).collect()
+    """
+    Create a survival curve for a specific event.
 
-    min_year = df.select(pl.min("event_year")).collect().item()
-    T = event_df.group_by("PNR").agg(
-        time_to_event=(pl.col("event_year").min() - min_year).cast(pl.Int32)
-    )
+    This function generates a Kaplan-Meier survival curve for the specified event type.
 
-    null_count = T["time_to_event"].null_count()
-    if null_count > 0:
-        print(f"Warning: {null_count} NaN values found in time calculation for {event_type}")
-        T = T.drop_nulls()
+    Args:
+        df (pl.LazyFrame):
+        A LazyFrame containing event data with 'PNR', 'event_type', and 'year' columns.
+        event_type (str): The specific event type to analyze.
 
-    E = event_df.group_by("PNR").agg(pl.count("PNR").alias("E"))
-    T = T.join(E, on="PNR", how="inner")
+    Returns:
+        Figure | None:
+        A matplotlib Figure object containing the survival curve, or None if an error occurs.
+    """
+    try:
+        logger.info(f"Starting survival curve plot for {event_type}")
+        event_df = df.filter(pl.col("event_type") == event_type).collect()
+        logger.info(f"Filtered data for {event_type}: {event_df.shape} rows")
 
-    if T.height == 0:
-        print(f"Error: No valid data for survival analysis of {event_type}")
+        min_year = df.select(pl.min("year")).collect().item()
+        logger.info(f"Minimum year: {min_year}")
+        T = event_df.group_by("PNR").agg(
+            time_to_event=(pl.col("year").min() - min_year).cast(pl.Int32)
+        )
+        logger.info(f"Time to event calculated: {T.shape} rows")
+
+        null_count = T["time_to_event"].null_count()
+        if null_count > 0:
+            logger.warning(f"{null_count} NaN values found in time calculation for {event_type}")
+            T = T.drop_nulls()
+            logger.info(f"After dropping nulls: {T.shape} rows")
+
+        E = event_df.group_by("PNR").agg(pl.count("PNR").alias("E"))
+        logger.info(f"Event counts calculated: {E.shape} rows")
+        T = T.join(E, on="PNR", how="inner")
+        logger.info(f"After joining: {T.shape} rows")
+
+        if T.height == 0:
+            logger.error(f"No valid data for survival analysis of {event_type}")
+            return None
+
+        kmf = KaplanMeierFitter()
+        kmf.fit(T["time_to_event"], T["E"], label=event_type)
+        logger.info("KaplanMeierFitter fitted successfully")
+
+        fig, ax = plt.subplots(figsize=(12, 8))
+        kmf.plot(ax=ax)
+        ax.set_title(f"Survival Curve for {event_type}", fontsize=16)
+        ax.set_xlabel("Years", fontsize=12)
+        ax.set_ylabel("Probability of not experiencing event", fontsize=12)
+        ax.grid(True, linestyle="--", alpha=0.7)
+        plt.tight_layout()
+        logger.info("Survival curve plot created successfully")
+        return fig
+    except Exception as e:
+        logger.error(f"Error in plot_survival_curve for {event_type}: {str(e)}", exc_info=True)
         return None
-
-    kmf = KaplanMeierFitter()
-    kmf.fit(T["time_to_event"], T["E"], label=event_type)
-
-    fig, ax = plt.subplots(figsize=(12, 8))
-    kmf.plot(ax=ax)
-    ax.set_title(f"Survival Curve for {event_type}", fontsize=16)
-    ax.set_xlabel("Years", fontsize=12)
-    ax.set_ylabel("Probability of not experiencing event", fontsize=12)
-    ax.grid(True, linestyle="--", alpha=0.7)
-    plt.tight_layout()
-    return fig
