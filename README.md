@@ -39,7 +39,7 @@ This project requires Python 3.12.6 and uses `rye` for dependency management.
 To run the main processing script:
 
 ```
-python -m cdef_cohort_builder.main
+python -m cdef_cohort.main
 ```
 
 ## Registers implemented

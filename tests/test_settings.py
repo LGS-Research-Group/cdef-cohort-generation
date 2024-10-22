@@ -3,9 +3,8 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from cdef_cohort.settings import Settings, SubModel
 from pydantic import ValidationError
-
-from cdef_cohort_builder.settings import Settings, SubModel
 
 
 @pytest.fixture
