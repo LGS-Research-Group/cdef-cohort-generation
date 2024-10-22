@@ -81,7 +81,7 @@ htmltools==0.5.3
 idna==3.10
     # via requests
 imohash==1.1.0
-    # via cdef-cohort-builder
+    # via cdef-cohort
 importlib-metadata==8.5.0
     # via great-tables
 importlib-resources==6.4.5
@@ -101,14 +101,14 @@ jsonschema-specifications==2024.10.1
 kiwisolver==1.4.7
     # via matplotlib
 lifelines==0.29.0
-    # via cdef-cohort-builder
+    # via cdef-cohort
 markdown-it-py==3.0.0
     # via rich
 markupsafe==3.0.1
     # via jinja2
     # via pdoc
 matplotlib==3.9.2
-    # via cdef-cohort-builder
+    # via cdef-cohort
     # via lifelines
     # via polars
     # via seaborn
@@ -165,14 +165,14 @@ pdoc==15.0.0
 pillow==10.4.0
     # via matplotlib
 plotly==5.24.1
-    # via cdef-cohort-builder
+    # via cdef-cohort
 plotly-geo==1.0.0
-    # via cdef-cohort-builder
+    # via cdef-cohort
 pluggy==1.5.0
     # via hatchling
     # via pytest
 polars==1.9.0
-    # via cdef-cohort-builder
+    # via cdef-cohort
 pyarrow==17.0.0
     # via adbc-driver-manager
     # via adbc-driver-sqlite
@@ -182,14 +182,14 @@ pyarrow==17.0.0
 pycparser==2.22 ; platform_python_implementation == 'CPython' and sys_platform == 'win32'
     # via cffi
 pydantic==2.9.2
-    # via cdef-cohort-builder
+    # via cdef-cohort
     # via polars
     # via pydantic-settings
     # via pyiceberg
 pydantic-core==2.23.4
     # via pydantic
 pydantic-settings==2.5.2
-    # via cdef-cohort-builder
+    # via cdef-cohort
 pygments==2.18.0
     # via pdoc
     # via rich
@@ -213,7 +213,7 @@ referencing==0.35.1
 requests==2.32.3
     # via pyiceberg
 rich==13.9.2
-    # via cdef-cohort-builder
+    # via cdef-cohort
     # via pyiceberg
 rpds-py==0.20.0
     # via jsonschema
@@ -225,7 +225,7 @@ scipy==1.14.1
     # via seaborn
     # via statsmodels
 seaborn==0.13.2
-    # via cdef-cohort-builder
+    # via cdef-cohort
 setuptools==75.1.0
     # via setuptools-scm
     # via zope-event
@@ -247,7 +247,7 @@ tenacity==8.5.0
     # via plotly
     # via pyiceberg
 tqdm==4.66.5
-    # via cdef-cohort-builder
+    # via cdef-cohort
 trove-classifiers==2024.10.13
     # via hatchling
 typing-extensions==4.12.2
