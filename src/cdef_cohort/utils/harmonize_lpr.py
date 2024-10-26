@@ -1,4 +1,5 @@
 import polars as pl
+
 from cdef_cohort.logging_config import logger
 from cdef_cohort.utils.date import parse_dates
 

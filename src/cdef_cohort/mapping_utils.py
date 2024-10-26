@@ -1,36 +1,64 @@
-import importlib.resources as pkg_resources
 import json
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
 import polars as pl
-
-# Global dictionary to store all mappings
-MAPPINGS: dict[str, dict[str, Any]] = {}
+from pydantic import BaseModel
 
 
-def get_mapping_path(filename: str) -> Path:
-    """Get the path to a mapping file."""
-    with pkg_resources.as_file(
-        pkg_resources.files("cdef_cohort").joinpath("mappings", filename)
-    ) as path:
-        return Path(path)
+class MappingConfig(BaseModel):
+    mapping_dir: Path
+    cache_enabled: bool = False
+    cache_ttl: int = 3600
 
+class MappingCache(ABC):
+    @abstractmethod
+    def get(self, key: str) -> dict[str, Any] | None:
+        pass
 
-def load_mapping(mapping_name: str) -> None:
-    """Load a mapping from a JSON file and store it in the MAPPINGS dictionary."""
-    mapping_file = get_mapping_path(f"{mapping_name}.json")
-    with open(mapping_file) as f:
-        MAPPINGS[mapping_name] = json.load(f)
+    @abstractmethod
+    def set(self, key: str, value: dict[str, Any]) -> None:
+        pass
 
+class InMemoryCache(MappingCache):
+    def __init__(self):
+        self._cache = {}
 
-def get_mapped_value(mapping_name: str, value: Any) -> Any:
-    """Get the mapped value for a given input."""
-    if mapping_name not in MAPPINGS:
-        load_mapping(mapping_name)
-    return MAPPINGS[mapping_name].get(str(value), value)
+    def get(self, key: str) -> dict[str, Any] | None:
+        return self._cache.get(key)
 
+    def set(self, key: str, value: dict[str, Any]) -> None:
+        self._cache[key] = value
 
-def apply_mapping(col: pl.Expr, mapping_name: str) -> pl.Expr:
-    """Apply a mapping to a Polars column expression."""
-    return col.map_elements(lambda x: get_mapped_value(mapping_name, x))
+class MappingService:
+    def __init__(self, config: MappingConfig, cache: MappingCache | None = None):
+        self.config = config
+        self.cache = cache or InMemoryCache()
+
+    def get_mapping(self, name: str) -> dict[str, Any]:
+        if self.config.cache_enabled:
+            cached = self.cache.get(name)
+            if cached:
+                return cached
+
+        mapping_file = self.config.mapping_dir / f"{name}.json"
+        with open(mapping_file) as f:
+            mapping = json.load(f)
+
+        if self.config.cache_enabled:
+            self.cache.set(name, mapping)
+
+        return mapping
+
+    def apply_mapping(
+        self,
+        col: pl.Expr,
+        mapping_name: str,
+        return_dtype: type[pl.DataType] = pl.Categorical
+    ) -> pl.Expr:
+        mapping = self.get_mapping(mapping_name)
+        return col.map_elements(
+            lambda x: mapping.get(str(x), x),
+            return_dtype=return_dtype
+        )

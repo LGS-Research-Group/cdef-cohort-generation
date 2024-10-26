@@ -6,6 +6,7 @@ import matplotlib
 matplotlib.use("Agg")  # Use the 'Agg' backend which doesn't require a GUI
 import polars as pl
 import polars.selectors as cs
+
 from cdef_cohort.logging_config import logger
 
 getLogger("matplotlib.font_manager").disabled = True
@@ -116,17 +117,7 @@ def save_stacked_bar_data(df: pl.LazyFrame, group_col: str, output_dir: Path) ->
 def save_sankey_data(
     df: pl.LazyFrame, event_sequence: list[str], top_n: int, min_count: int, output_dir: Path
 ) -> None:
-    """
-    Save Sankey diagram data to a CSV file.
-
-    Args:
-        df (pl.LazyFrame):
-            A LazyFrame containing event data with 'PNR', 'event_type', and 'year' columns.
-        event_sequence (list[str]): A list of event types in the desired sequence.
-        top_n (int): Number of top events to include individually.
-        min_count (int): Minimum count for a flow to be included.
-        output_dir (Path): Directory to save the CSV file.
-    """
+    """Save Sankey diagram data to a CSV file."""
     flows = (
         df.select(["PNR", "event_type", "year"])
         .rename({"year": "year"})
@@ -149,7 +140,6 @@ def save_sankey_data(
     )
 
     sankey_data = []
-    node_labels = list(top_events) + ["Other"]
 
     for sequence, count in zip(flows["event_sequence"], flows["count"], strict=False):
         if count < min_count:

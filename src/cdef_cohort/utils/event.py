@@ -1,7 +1,8 @@
 import polars as pl
 import polars.selectors as cs
-from cdef_cohort.logging_config import logger
 from rich.markup import escape
+
+from cdef_cohort.logging_config import logger
 
 
 def validate_columns(df: pl.LazyFrame, columns: list[str]) -> bool:

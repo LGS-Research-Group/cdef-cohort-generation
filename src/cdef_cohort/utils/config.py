@@ -20,6 +20,7 @@ REGISTER_DIR = settings.REGISTER_BASE_DIR
 # Demographic data
 BEF_FILES = settings.BEF_FILES
 UDDF_FILES = settings.UDDF_FILES
+MFR_FILES = settings.MFR_FILES
 
 # Health data
 LPR_ADM_FILES = settings.LPR_ADM_FILES

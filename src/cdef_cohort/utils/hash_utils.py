@@ -4,10 +4,11 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any, TypeVar, cast
 
+from imohash import hashfile
+
 from cdef_cohort.logging_config import logger
 from cdef_cohort.utils import config
 from cdef_cohort.utils.config import HASH_FILE_PATH
-from imohash import hashfile
 
 T = TypeVar("T")
 

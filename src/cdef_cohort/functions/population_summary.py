@@ -70,38 +70,31 @@ def save_event_summary(events_df: pl.LazyFrame, output_dir: Path) -> None:
     event_proportions.write_csv(output_dir / "event_proportions.csv")
 
 
-def save_scd_summary(scd_data: pl.LazyFrame, output_dir: Path) -> None:
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    # Table 1: SCD prevalence
-    scd_prevalence = (
-        scd_data.select(pl.col("is_scd").sum().alias("scd_count"), pl.count().alias("total_count"))
-        .with_columns(
-            [
-                (pl.col("scd_count") / pl.col("total_count") * 100).alias("scd_percentage"),
-                ((pl.col("total_count") - pl.col("scd_count")) / pl.col("total_count") * 100).alias(
-                    "non_scd_percentage"
-                ),
-            ]
-        )
-        .select(
-            [
-                pl.lit(["Has SCD", "No SCD"]).alias("SCD Status"),
-                pl.concat_list(
-                    pl.col("scd_count"), pl.col("total_count") - pl.col("scd_count")
-                ).alias("Count"),
-                pl.concat_list(pl.col("scd_percentage"), pl.col("non_scd_percentage")).alias(
-                    "Percentage"
-                ),
-            ]
-        )
-        .collect()
+def save_scd_summary(scd_data: pl.LazyFrame, output_file: Path) -> None:
+    """Save summary of severe chronic disease data."""
+    # Collect and flatten the data
+    summary = scd_data.collect().with_columns(
+        [
+            pl.col("is_scd").fill_null(False),
+            pl.col("first_scd_date").cast(pl.Utf8),  # Convert date to string
+        ]
     )
-    scd_prevalence.write_csv(output_dir / "scd_prevalence.csv")
 
-    # Data for Figure 1: SCD diagnosis timing
-    scd_dates = scd_data.filter(pl.col("is_scd")).select(pl.col("first_scd_date")).collect()
-    scd_dates.write_csv(output_dir / "scd_timing.csv")
+    # Calculate summary statistics
+    total_cases = summary.filter(pl.col("is_scd")).height
+    total_population = summary.height
+    prevalence = (total_cases / total_population) * 100 if total_population > 0 else 0
+
+    # Create a simple summary DataFrame
+    summary_df = pl.DataFrame(
+        {
+            "metric": ["Total Population", "SCD Cases", "Prevalence (%)"],
+            "value": [total_population, total_cases, round(prevalence, 2)],
+        }
+    )
+
+    # Save to CSV
+    summary_df.write_csv(output_file)
 
 
 def save_all_summaries(

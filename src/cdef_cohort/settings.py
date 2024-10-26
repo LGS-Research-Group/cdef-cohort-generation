@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import polars as pl
-from pydantic import ValidationError, computed_field, validator
+from pydantic import ValidationError, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 LogLevel = Literal["debug", "info", "warning", "error", "critical"]
@@ -116,6 +116,11 @@ class Settings(BaseSettings):
 
     @computed_field  # type: ignore[prop-decorator]
     @property
+    def MFR_FILES(self) -> Path:
+        return self.REGISTER_BASE_DIR / "mfr" / self.PARQUETS
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
     def UDDF_FILES(self) -> Path:
         return self.REGISTER_BASE_DIR / "uddf" / self.PARQUETS
 
@@ -222,20 +227,20 @@ class Settings(BaseSettings):
     def ISCED_MAPPING_FILE(self) -> Path:
         return self.get_mapping_path("isced.json")
 
-    @validator("BASE_DIR", "REGISTER_BASE_DIR", pre=True)
+    @field_validator("BASE_DIR", "REGISTER_BASE_DIR", mode="before")
     def validate_directory(cls, v: Any) -> Path:
         path = Path(v)
         if not path.exists():
             raise ValueError(f"Directory does not exist: {path}")
         return path
 
-    @validator("LOG_LEVEL")
+    @field_validator("LOG_LEVEL")
     def validate_log_level(cls, v: str) -> str:
         if v.lower() not in ["debug", "info", "warning", "error", "critical"]:
             raise ValueError(f"Invalid log level: {v}")
         return v.lower()
 
-    @validator(
+    @field_validator(
         "BEF_FILES",
         "UDDF_FILES",
         "LPR_ADM_FILES",
@@ -246,7 +251,7 @@ class Settings(BaseSettings):
         "AKM_FILES",
         "IDAN_FILES",
         "IND_FILES",
-        pre=True,
+        mode="before",
     )
     def validate_files_exist(cls, v: Any) -> Path:
         path = Path(v)

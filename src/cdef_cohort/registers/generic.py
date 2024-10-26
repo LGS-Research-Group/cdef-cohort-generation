@@ -3,18 +3,20 @@ from pathlib import Path
 from typing import Any
 
 import polars as pl
+from polars.datatypes import DataTypeClass
+from tqdm import tqdm
+
 from cdef_cohort.logging_config import logger
 from cdef_cohort.utils.columns import validate_and_select_columns
 from cdef_cohort.utils.date import extract_date_from_filename, parse_dates
 from cdef_cohort.utils.isced import read_isced_data
 from cdef_cohort.utils.types import KwargsType
-from tqdm import tqdm
 
 
 def process_register_data(
     input_files: Path | str,
     output_file: Path | str,
-    schema: Mapping[str, pl.DataType | type[pl.DataType]],
+    schema: Mapping[str, DataTypeClass],
     defaults: dict[str, Any],
     preprocess_func: Callable[[pl.LazyFrame], pl.LazyFrame] | None = None,
     **kwargs: KwargsType,
