@@ -26,7 +26,7 @@ class BEFProcessor(BaseProcessor):
         "CPRTYPE": pl.Int8,  # Type of CPR/PNR number
         "E_FAELLE_ID": pl.Utf8,  # PNR of the partner
         "FAMILIE_ID": pl.Utf8,  # Unique family ID
-        "FAMILIE_TYPE": pl.UInt8,  # Family type
+        "FAMILIE_TYPE": pl.Utf8,  # Family type
         "FAR_ID": pl.Utf8,  # PNR of the father
         "FM_MARK": pl.Categorical,  # Family mark
         "FOED_DAG": pl.Date,  # Date of birth
