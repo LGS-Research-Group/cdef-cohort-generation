@@ -63,8 +63,45 @@ class TableService(ConfigurableService):
             # Get column type
             col_type = df.collect_schema()[column]
 
-            # Define summary expressions based on data type
-            if col_type in [pl.Float64, pl.Float32, pl.Int64, pl.Int32, pl.Int16, pl.Int8]:
+            if col_type in [pl.Utf8, pl.Categorical]:
+                # For categorical/string columns, calculate value counts and percentages
+                total_count = df.select(pl.count()).collect().item()
+
+                value_counts = (
+                    df.select(pl.col(column))
+                    .filter(pl.col(column).is_not_null())
+                    .group_by(column)
+                    .agg(pl.count().alias("count"))
+                    .sort("count", descending=True)
+                    .collect()
+                )
+
+                # Convert to dictionary with formatted strings
+                counts_dict = {
+                    str(val): f"{count:,} ({count/total_count*100:.1f}%)"
+                    for val, count in zip(value_counts[column].to_list(), value_counts["count"].to_list(), strict=True)
+                }
+
+                missing_count = df.select(pl.col(column).is_null().sum()).collect().item()
+
+                if strata_name:
+                    stats = (
+                        df.filter(pl.col(strata_name).is_not_null())
+                        .group_by(strata_name)
+                        .agg([pl.col(column).is_null().sum().alias("missing")])
+                        .collect()
+                    )
+
+                    result = {}
+                    for row in stats.iter_rows(named=True):
+                        stratum = str(row[strata_name])
+                        result[stratum] = {"value_counts": counts_dict, "missing": row["missing"]}
+                    return result
+                else:
+                    return {"all": {"value_counts": counts_dict, "missing": missing_count}}
+
+            # Rest of the method remains the same...
+            elif col_type in [pl.Float64, pl.Float32, pl.Int64, pl.Int32, pl.Int16, pl.Int8]:
                 summary_exprs = [
                     pl.col(column).count().alias("count"),
                     pl.col(column).mean().alias("mean"),
@@ -74,70 +111,30 @@ class TableService(ConfigurableService):
                     pl.col(column).quantile(0.75).alias("q3"),
                     pl.col(column).min().alias("min"),
                     pl.col(column).max().alias("max"),
-                    pl.col(column).is_null().sum().alias("null_count"),
+                    pl.col(column).is_null().sum().alias("missing"),
                 ]
             elif col_type in [pl.Date, pl.Datetime]:
                 summary_exprs = [
                     pl.col(column).count().alias("count"),
                     pl.col(column).min().alias("min"),
                     pl.col(column).max().alias("max"),
-                    pl.col(column).is_null().sum().alias("null_count"),
-                ]
-            elif col_type in [pl.Utf8, pl.Categorical]:
-                summary_exprs = [
-                    pl.col(column).count().alias("count"),
-                    pl.col(column).n_unique().alias("unique_count"),
-                    pl.col(column).value_counts().alias("value_counts"),
-                    pl.col(column).is_null().sum().alias("null_count"),
+                    pl.col(column).is_null().sum().alias("missing"),
                 ]
             else:
-                # Default case for other types
-                summary_exprs = [
-                    pl.col(column).count().alias("count"),
-                    pl.col(column).is_null().sum().alias("null_count"),
-                ]
+                summary_exprs = [pl.col(column).count().alias("count"), pl.col(column).is_null().sum().alias("missing")]
 
             if strata_name:
-                # Stratified analysis
                 stats = df.filter(pl.col(strata_name).is_not_null()).group_by(strata_name).agg(summary_exprs).collect()
 
                 result = {}
                 for row in stats.iter_rows(named=True):
                     stratum = str(row[strata_name])
                     stat_dict = {name: row[name] for name in stats.columns if name != strata_name}
-                    # Ensure all required keys exist
-                    stat_dict.setdefault("count", 0)
-                    stat_dict.setdefault("missing", 0)
-                    stat_dict.setdefault("mean", None)
-                    stat_dict.setdefault("std", None)
-                    stat_dict.setdefault("median", None)
-                    stat_dict.setdefault("q1", None)
-                    stat_dict.setdefault("q3", None)
-                    stat_dict.setdefault("min", None)
-                    stat_dict.setdefault("max", None)
-
                     result[stratum] = stat_dict
-
                 return result
-
             else:
-                # Non-stratified analysis
                 stats = df.select(summary_exprs).collect()
-
-                # Convert to dictionary format with default values
-                stats_dict = {name: stats[name][0] for name in stats.columns}
-                # Ensure all required keys exist
-                stats_dict.setdefault("count", 0)
-                stats_dict.setdefault("missing", 0)
-                stats_dict.setdefault("mean", None)
-                stats_dict.setdefault("std", None)
-                stats_dict.setdefault("median", None)
-                stats_dict.setdefault("q1", None)
-                stats_dict.setdefault("q3", None)
-                stats_dict.setdefault("min", None)
-                stats_dict.setdefault("max", None)
-
-                return {"all": stats_dict}
+                return {"all": {name: stats[name][0] for name in stats.columns}}
 
         except Exception as e:
             logger.error(f"Error calculating statistics for column {column}: {str(e)}")
@@ -145,13 +142,7 @@ class TableService(ConfigurableService):
                 "all": {
                     "count": df.select(pl.count(column)).collect().item(),
                     "missing": df.select(pl.col(column).is_null().sum()).collect().item(),
-                    "mean": None,
-                    "std": None,
-                    "median": None,
-                    "q1": None,
-                    "q3": None,
-                    "min": None,
-                    "max": None,
+                    "value_counts": {},
                 }
             }
 
@@ -288,19 +279,25 @@ class TableService(ConfigurableService):
             stats = self.calculate_stats(df, column, stratify_by)
             for stratum, stat in stats.items():
                 try:
-                    if formatter:
+                    if "value_counts" in stat:
+                        # Handle categorical variables
+                        value_counts = stat["value_counts"]
+                        if value_counts:
+                            value = "\n".join(f"{k}: {v}" for k, v in value_counts.items())
+                        else:
+                            value = "No categories found"
+                    elif formatter:
                         value = formatter(stat)
                     else:
-                        # Check if we have numeric statistics
-                        if all(k in stat for k in ["mean", "std", "50%", "25%", "75%"]):
+                        # Handle numeric statistics (unchanged)
+                        if all(k in stat for k in ["mean", "std", "median", "q1", "q3"]):
                             value = (
-                                f"Mean: {self.format_number(float(stat['mean']))} "
-                                f"(SD: {self.format_number(float(stat['std']))})\n"
-                                f"Median: {self.format_number(float(stat['50%']))} "
-                                f"(IQR: {self.format_number(float(stat['25%']))}-"
-                                f"{self.format_number(float(stat['75%']))})"
+                                f"Mean: {self.format_number(stat['mean'])} "
+                                f"(SD: {self.format_number(stat['std'])})\n"
+                                f"Median: {self.format_number(stat['median'])} "
+                                f"(IQR: {self.format_number(stat['q1'])}-"
+                                f"{self.format_number(stat['q3'])})"
                             )
-                        # Check if we have min/max
                         elif all(k in stat for k in ["min", "max"]):
                             value = f"Range: {stat['min']} to {stat['max']}"
                         else:
@@ -311,7 +308,7 @@ class TableService(ConfigurableService):
                             "Category": category,
                             "Variable": f"{variable}{f' - {stratum}' if stratum != 'all' else ''}",
                             "Value": value,
-                            "Missing": f"{(float(stat.get('null_count', 0))/n_total*100):.1f}%",
+                            "Missing": f"{(float(stat['missing'])/n_total*100):.1f}%",
                         }
                     )
                 except Exception as e:
