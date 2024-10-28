@@ -117,6 +117,12 @@ def main(output_dir: Path | None = None) -> pl.LazyFrame:
             )
             logger.info("Population service configured")
 
+            # Ensure the population file is generated
+            population_service = container.get_population_service()
+            population_result = population_service.process_population()
+            population_result.collect().write_parquet(settings.POPULATION_FILE)
+            logger.info(f"Population file generated at: {settings.POPULATION_FILE}")
+
             # Configure cohort service
             container.get_cohort_service().configure(
                 {

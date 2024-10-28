@@ -12,8 +12,8 @@ LogLevel = Literal["debug", "info", "warning", "error", "critical"]
 
 class Settings(BaseSettings):
     # Basic paths
-    BASE_DIR: Path = Path("/Users/tobiaskragholm/dev/TEST")
-    REGISTER_BASE_DIR: Path = Path("/Users/tobiaskragholm/dev/TEST/registers")
+    BASE_DIR: Path = Path("/Users/tobiaskragholm/dev/backup_data")
+    REGISTER_BASE_DIR: Path = Path("/Users/tobiaskragholm/dev/backup_data/registers")
 
     # Constants
     PARQUETS: str = "*.parquet"
