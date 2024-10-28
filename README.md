@@ -4,6 +4,16 @@ This Python project is part of a research study conducted by the [Center for Dat
 
 The package has been built in such a way that it can be easily extended to include additional registers and data sources. The project is designed to be modular and flexible, allowing for easy integration of new data sources and registers. And also to be easily adaptable to other research projects that require processing and analysis of Danish national registers. But this package focuses on creating the initial cohort/population for the study.
 
+## Service Architecture
+
+- DataService: Handles data I/O operations
+- EventService: Manages event identification and processing
+- MappingService: Handles data mapping operations
+- PopulationService: Manages population data processing
+- RegisterService: Handles register data processing
+- PipelineService: Orchestrates the overall data processing pipeline
+- CohortService: Handles cohort-specific operations
+
 ## Project Overview
 
 This project is designed to process and analyze data from Danish national registers for an observational study investigating the long-term impact of severe chronic diseases in children on parental income trajectories in Denmark.

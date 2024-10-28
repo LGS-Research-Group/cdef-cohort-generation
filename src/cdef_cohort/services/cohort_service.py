@@ -1,19 +1,20 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 import polars as pl
 
-from cdef_cohort.utils.harmonize_lpr import (
-    combine_harmonized_data,
-    harmonize_health_data,
-    integrate_lpr2_components,
-    integrate_lpr3_components,
-)
+from cdef_cohort.logging_config import logger
+from cdef_cohort.utils.date import parse_dates
 
 from .base import ConfigurableService
 from .data_service import DataService
 from .event_service import EventService
 from .mapping_service import MappingService
+
+
+class DiagnosisGroup(TypedDict):
+    group: str
+    codes: list[str]
 
 
 class CohortService(ConfigurableService):
@@ -22,6 +23,7 @@ class CohortService(ConfigurableService):
         self.event_service = event_service
         self.mapping_service = mapping_service
         self._config: dict[str, Any] = {}
+        self._health_data: pl.LazyFrame | None = None
 
     def initialize(self) -> None:
         if not self.check_valid():
@@ -60,37 +62,15 @@ class CohortService(ConfigurableService):
         return events
 
     def identify_severe_chronic_disease(self) -> pl.LazyFrame:
-            """Process health data and identify children with severe chronic diseases."""
-            # Read and integrate LPR2 data
-            lpr2_adm = self.data_service.read_parquet(self._config["lpr2_path"]["adm"])
-            lpr2_diag = self.data_service.read_parquet(self._config["lpr2_path"]["diag"])
-            lpr2_bes = self.data_service.read_parquet(self._config["lpr2_path"]["bes"])
-            lpr2 = integrate_lpr2_components(lpr2_adm, lpr2_diag, lpr2_bes)
+        """Process health data and identify children with severe chronic diseases."""
+        # Process the health data and store it for later use
+        self._health_data = self._process_health_data()
 
-            # Read and integrate LPR3 data
-            lpr3_kontakter = self.data_service.read_parquet(self._config["lpr3_path"]["kontakter"])
-            lpr3_diagnoser = self.data_service.read_parquet(self._config["lpr3_path"]["diagnoser"])
-            lpr3 = integrate_lpr3_components(lpr3_kontakter, lpr3_diagnoser)
+        # Get the SCD results
+        scd_result = self._get_scd_results(self._health_data)
 
-            # Harmonize and combine data
-            lpr2_harmonized, lpr3_harmonized = harmonize_health_data(lpr2, lpr3)
-            combined_data = combine_harmonized_data(lpr2_harmonized, lpr3_harmonized)
-
-            # Apply SCD algorithm to harmonized data
-            scd_result = self._apply_scd_algorithm(
-                combined_data,
-                ["primary_diagnosis", "diagnosis", "secondary_diagnosis"],
-                "admission_date",
-                "patient_id"
-            )
-
-            # Return aggregated results
-            return scd_result.group_by("patient_id").agg([
-                pl.col("is_scd").max().alias("is_scd"),
-                pl.col("first_scd_date").min().alias("first_scd_date"),
-            ]).with_columns([
-                pl.col("patient_id").alias("PNR")  # Rename back to PNR for consistency
-            ]).drop("patient_id")
+        # Return the processed results
+        return scd_result
 
     def _apply_scd_algorithm(
         self, data: pl.LazyFrame, diagnosis_cols: list[str], date_col: str, id_col: str
@@ -401,3 +381,295 @@ class CohortService(ConfigurableService):
             )
             .drop(["icd_code_adiag", "icd_code_diag"])
         )
+
+    def _process_health_data(self) -> pl.LazyFrame:
+        """Process and harmonize health data."""
+        try:
+            # Read and integrate LPR2 data
+            lpr2_adm = self.data_service.read_parquet(self._config["lpr2_path"]["adm"])
+            lpr2_diag = self.data_service.read_parquet(self._config["lpr2_path"]["diag"])
+            lpr2_bes = self.data_service.read_parquet(self._config["lpr2_path"]["bes"])
+            lpr2 = self._integrate_lpr2_components(lpr2_adm, lpr2_diag, lpr2_bes)
+
+            # Read and integrate LPR3 data
+            lpr3_kontakter = self.data_service.read_parquet(self._config["lpr3_path"]["kontakter"])
+            lpr3_diagnoser = self.data_service.read_parquet(self._config["lpr3_path"]["diagnoser"])
+            lpr3 = self._integrate_lpr3_components(lpr3_kontakter, lpr3_diagnoser)
+
+            # Harmonize and combine data
+            lpr2_harmonized, lpr3_harmonized = self._harmonize_health_data(lpr2, lpr3)
+            combined = self._combine_harmonized_data(lpr2_harmonized, lpr3_harmonized)
+
+            logger.info("Health data processed successfully")
+            return combined
+
+        except Exception as e:
+            logger.error(f"Error processing health data: {str(e)}")
+            raise ValueError(f"Error processing health data: {str(e)}") from e
+
+    def _combine_harmonized_data(self, df1: pl.LazyFrame, df2: pl.LazyFrame) -> pl.LazyFrame:
+        """Combine harmonized LPR2 and LPR3 data."""
+        logger.debug("Starting combination of harmonized data")
+
+        all_columns = set(df1.collect_schema().names()).union(set(df2.collect_schema().names()))
+
+        for col in all_columns:
+            if col not in df1.collect_schema().names():
+                df1 = df1.with_columns(pl.lit(None).cast(pl.Utf8).alias(col))
+            else:
+                df1 = df1.with_columns(pl.col(col).cast(pl.Utf8))
+
+            if col not in df2.collect_schema().names():
+                df2 = df2.with_columns(pl.lit(None).cast(pl.Utf8).alias(col))
+            else:
+                df2 = df2.with_columns(pl.col(col).cast(pl.Utf8))
+
+        combined_df = pl.concat([df1.select(sorted(all_columns)), df2.select(sorted(all_columns))])
+
+        # Parse dates and ensure department handling
+        combined_df = combined_df.with_columns(
+            [parse_dates("admission_date"), parse_dates("discharge_date"), pl.col("department").fill_null("Unknown")]
+        )
+
+        return combined_df
+
+    def _integrate_lpr2_components(
+        self, lpr_adm: pl.LazyFrame, lpr_diag: pl.LazyFrame, lpr_bes: pl.LazyFrame
+    ) -> pl.LazyFrame:
+        """Integrate LPR2 components: adm, diag, and bes."""
+        logger.debug("Starting LPR2 component integration")
+        logger.debug(f"LPR2 ADM schema: {lpr_adm.collect_schema()}")
+        logger.debug(f"LPR2 DIAG schema: {lpr_diag.collect_schema()}")
+        logger.debug(f"LPR2 BES schema: {lpr_bes.collect_schema()}")
+
+        lpr2_integrated = (
+            lpr_adm.join(lpr_diag, on="RECNUM", how="left")
+            .join(lpr_bes, on="RECNUM", how="left")
+            .with_columns([pl.coalesce(pl.col("C_AFD"), pl.lit("Unknown")).alias("department_code")])
+        )
+
+        logger.debug(f"LPR2 final integrated schema: {lpr2_integrated.collect_schema()}")
+        return lpr2_integrated
+
+    def _integrate_lpr3_components(self, lpr3_kontakter: pl.LazyFrame, lpr3_diagnoser: pl.LazyFrame) -> pl.LazyFrame:
+        """Integrate LPR3 components: kontakter and diagnoser."""
+        logger.debug("Starting LPR3 component integration")
+        logger.debug(f"LPR3 kontakter schema: {lpr3_kontakter.collect_schema()}")
+        logger.debug(f"LPR3 diagnoser schema: {lpr3_diagnoser.collect_schema()}")
+
+        lpr3_integrated = lpr3_kontakter.join(lpr3_diagnoser, on="DW_EK_KONTAKT", how="left").with_columns(
+            [pl.coalesce(pl.col("SORENHED_ANS"), pl.lit("Unknown")).alias("department_code")]
+        )
+
+        logger.debug(f"LPR3 integrated schema: {lpr3_integrated.collect_schema()}")
+        return lpr3_integrated
+
+    def _harmonize_health_data(self, df1: pl.LazyFrame, df2: pl.LazyFrame) -> tuple[pl.LazyFrame, pl.LazyFrame]:
+        """Harmonize column names of LPR2 and LPR3 data."""
+        logger.debug("Starting health data harmonization")
+
+        column_mappings = {
+            # Patient identifier
+            "PNR": "patient_id",  # LPR2
+            "CPR": "patient_id",  # LPR3
+            # Diagnosis
+            "C_ADIAG": "primary_diagnosis",  # LPR2
+            "aktionsdiagnose": "primary_diagnosis",  # LPR3
+            "C_DIAG": "diagnosis",  # LPR2 (from LPR_DIAG)
+            "diagnosekode": "diagnosis",  # LPR3
+            "C_TILDIAG": "secondary_diagnosis",  # LPR2
+            # Dates
+            "D_INDDTO": "admission_date",  # LPR2
+            "dato_start": "admission_date",  # LPR3
+            "D_UDDTO": "discharge_date",  # LPR2
+            "dato_slut": "discharge_date",  # LPR3
+            "D_AMBDTO": "outpatient_date",  # LPR2 (from LPR_BES)
+            # Hospital and department
+            "C_SGH": "hospital_code",  # LPR2
+            "SORENHED_ANS": "hospital_code",  # LPR3 (assuming this is the responsible hospital)
+            "C_AFD": "department_code",  # LPR2
+            # Patient type and contact type
+            "C_PATTYPE": "patient_type",  # LPR2
+            "kontakttype": "patient_type",  # LPR3
+            # Record identifier
+            "RECNUM": "record_id",  # LPR2
+            "DW_EK_KONTAKT": "record_id",  # LPR3
+            # Additional fields
+            "C_INDM": "admission_type",  # LPR2
+            "prioritet": "admission_type",  # LPR3
+            "C_UDM": "discharge_type",  # LPR2
+            "C_SPEC": "specialty_code",  # LPR2
+            "V_SENGDAGE": "bed_days",  # LPR2
+            # LPR3 specific fields
+            "diagnosetype": "diagnosis_type",
+            "senere_afkraeftet": "diagnosis_later_disproved",
+            "kontaktaarsag": "contact_reason",
+            "henvisningsaarsag": "referral_reason",
+            "henvisningsmaade": "referral_method",
+        }
+
+        def rename_columns(df: pl.LazyFrame) -> pl.LazyFrame:
+            # Create a copy of the DataFrame with all columns
+            result = df
+
+            # First, ensure we rename department_code to department
+            if "department_code" in result.collect_schema().names():
+                result = result.rename({"department_code": "department"})
+
+            # Then handle all other column renames
+            for old_name, new_name in column_mappings.items():
+                if old_name in result.collect_schema().names() and old_name != "department_code":
+                    result = result.rename({old_name: new_name})
+
+            return result
+
+        # Apply renaming and add source
+        df1_harmonized = rename_columns(df1).with_columns(
+            [pl.lit("LPR2").alias("source"), pl.col("department").fill_null("Unknown")]
+        )
+
+        df2_harmonized = rename_columns(df2).with_columns(
+            [pl.lit("LPR3").alias("source"), pl.col("department").fill_null("Unknown")]
+        )
+
+        logger.debug(f"Harmonized LPR2 schema: {df1_harmonized.collect_schema()}")
+        logger.debug(f"Harmonized LPR3 schema: {df2_harmonized.collect_schema()}")
+
+        return df1_harmonized, df2_harmonized
+
+    def _get_scd_results(self, health_data: pl.LazyFrame) -> pl.LazyFrame:
+        """Get SCD results from processed health data."""
+        scd_result = self._apply_scd_algorithm(
+            health_data, ["primary_diagnosis", "diagnosis", "secondary_diagnosis"], "admission_date", "patient_id"
+        )
+
+        return (
+            scd_result.group_by("patient_id")
+            .agg(
+                [
+                    pl.col("is_scd").max().alias("is_scd"),
+                    pl.col("first_scd_date").min().alias("first_scd_date"),
+                ]
+            )
+            .with_columns([pl.col("patient_id").alias("PNR")])
+            .drop("patient_id")
+        )
+
+    def get_health_data_for_analytical(self) -> pl.LazyFrame | None:
+        """Get processed health data for analytical dataset."""
+        if self._health_data is None:
+            return None
+
+        # Process health data for analytical purposes
+        return (
+            self._health_data.with_columns(
+                [pl.col("patient_id").alias("PNR"), pl.col("admission_date").dt.year().alias("year")]
+            )
+            .group_by(["PNR", "year"])
+            .agg(
+                [
+                    pl.col("primary_diagnosis").count().alias("num_primary_diagnoses"),
+                    pl.col("diagnosis").count().alias("num_diagnoses"),
+                    pl.col("secondary_diagnosis").count().alias("num_secondary_diagnoses"),
+                    pl.col("admission_date").count().alias("num_admissions"),
+                    pl.col("discharge_date").max().alias("last_discharge"),
+                    pl.col("admission_type").mode().alias("most_common_admission_type"),
+                    pl.col("department").n_unique().alias("num_unique_departments"),
+                ]
+            )
+        )
+
+    def get_diagnosis_groups(self) -> list[DiagnosisGroup]:
+        """Get the diagnosis groups used in the SCD algorithm."""
+        return [
+            {"group": "Blood Disorders", "codes": ["D55-D61", "D64-D73", "D76"]},
+            {"group": "Immune System", "codes": ["D80-D84", "D86", "D89"]},
+            {"group": "Endocrine", "codes": ["E22-E27", "E31", "E34", "E70-E85", "E88"]},
+            {
+                "group": "Neurological",
+                "codes": ["F84", "G11-G13", "G23-G25", "G31-G32", "G36-G41", "G60-G73", "G80-G83", "G90-G91", "G93"],
+            },
+            {"group": "Cardiovascular", "codes": ["I27", "I42-I43", "I50", "I61", "I63", "I69-I74", "I77-I79"]},
+            {"group": "Respiratory", "codes": ["J41-J45", "J47", "J60-J70", "J84", "J98"]},
+            {"group": "Gastrointestinal", "codes": ["K50-K51", "K73-K74", "K86-K87", "K90"]},
+            {"group": "Musculoskeletal", "codes": ["M05-M09", "M30-M35", "M40-M43", "M45-M46"]},
+            {"group": "Renal", "codes": ["N01-N08", "N11-N16", "N18-N29"]},
+            {"group": "Congenital", "codes": ["P27", "Q01-Q07", "Q20-Q28", "Q30-Q45", "Q60-Q99"]},
+        ]
+
+    def create_analytical_health_data(self, output_path: Path) -> None:
+        """Create analytical health dataset with various views."""
+        if self._health_data is None:
+            raise ValueError("Health data not processed. Run identify_severe_chronic_disease first.")
+
+        try:
+            # Get base health data
+            base_health = self.get_health_data_for_analytical()
+            if base_health is None:
+                raise ValueError("Could not get health data for analytical dataset")
+
+            # Write longitudinal health data
+            self.data_service.write_parquet(
+                base_health, output_path / "longitudinal" / "health_summary.parquet", partition_by="year"
+            )
+
+            # Create and write diagnosis group summaries
+            diagnosis_groups = self.get_diagnosis_groups()
+
+            # Start with a base DataFrame containing just PNR and year
+            base_summary = self._health_data.select(
+                [pl.col("patient_id").alias("PNR"), pl.col("admission_date").dt.year().alias("year")]
+            ).unique()
+
+            accumulated_metrics = []
+
+            # Calculate metrics for each diagnosis group
+            for group in diagnosis_groups:
+                group_name = group["group"].lower().replace(" ", "_")
+                codes = group["codes"]
+
+                # Calculate metrics for this group
+                group_metrics = (
+                    self._health_data.filter(
+                        pl.col("primary_diagnosis").str.contains("|".join(codes))
+                        | pl.col("diagnosis").str.contains("|".join(codes))
+                        | pl.col("secondary_diagnosis").str.contains("|".join(codes))
+                    )
+                    .group_by([pl.col("patient_id").alias("PNR"), pl.col("admission_date").dt.year().alias("year")])
+                    .agg(
+                        [
+                            pl.count().alias(f"num_{group_name}_diagnoses"),
+                            pl.col("admission_date").count().alias(f"num_{group_name}_admissions"),
+                        ]
+                    )
+                )
+
+                accumulated_metrics.append(group_metrics)
+
+            # Combine all metrics using a series of joins
+            final_summary = base_summary
+            for metrics in accumulated_metrics:
+                final_summary = final_summary.join(
+                    metrics.select(
+                        [
+                            pl.col("PNR"),
+                            pl.col("year"),
+                            pl.col("^num_.*$"),  # Select all columns starting with "num_"
+                        ]
+                    ),
+                    on=["PNR", "year"],
+                    how="left",
+                ).with_columns(
+                    [
+                        pl.col("^num_.*$").fill_null(0)  # Fill nulls in all numeric columns
+                    ]
+                )
+
+            # Write diagnosis group summaries
+            self.data_service.write_parquet(
+                final_summary, output_path / "longitudinal" / "diagnosis_groups.parquet", partition_by="year"
+            )
+
+        except Exception as e:
+            logger.error(f"Error creating analytical health data: {str(e)}")
+            raise ValueError(f"Error creating analytical health data: {str(e)}") from e

@@ -26,7 +26,7 @@ requires-python = ">= 3.12"
 license = "MIT"
 
 [project.scripts]
-cdef-cohort-generation = "cdef_cohort.main:main"
+main = "cdef_cohort.main:main"
 
 [tool.hatch.version]
 source = "vcs"

@@ -12,8 +12,8 @@ LogLevel = Literal["debug", "info", "warning", "error", "critical"]
 
 class Settings(BaseSettings):
     # Basic paths
-    BASE_DIR: Path = Path("/Users/tobiaskragholm/dev/TEST_RUN")
-    REGISTER_BASE_DIR: Path = Path("/Users/tobiaskragholm/dev/TEST_RUN/registers")
+    BASE_DIR: Path = Path("/Users/tobiaskragholm/dev/TEST")
+    REGISTER_BASE_DIR: Path = Path("/Users/tobiaskragholm/dev/TEST/registers")
 
     # Constants
     PARQUETS: str = "*.parquet"
@@ -33,37 +33,21 @@ class Settings(BaseSettings):
     FATHER_EVENT_DEFINITIONS: dict[str, Any] = {
         "father_education_change": (pl.col("FAR_EDU_LVL").shift() != pl.col("FAR_EDU_LVL")),
         "father_income_change": (pl.col("FAR_PERINDKIALT_13").cast(pl.Float64).diff() != 0),
-        "significant_income_increase_father": (
-            pl.col("FAR_PERINDKIALT_13").cast(pl.Float64).pct_change() > 0.10
-        ),
-        "significant_income_decrease_father": (
-            pl.col("FAR_PERINDKIALT_13").cast(pl.Float64).pct_change() < -0.10
-        ),
-        "father_employment_status_change": (
-            pl.col("FAR_BESKST13").shift() != pl.col("FAR_BESKST13")
-        ),
+        "significant_income_increase_father": (pl.col("FAR_PERINDKIALT_13").cast(pl.Float64).pct_change() > 0.10),
+        "significant_income_decrease_father": (pl.col("FAR_PERINDKIALT_13").cast(pl.Float64).pct_change() < -0.10),
+        "father_employment_status_change": (pl.col("FAR_BESKST13").shift() != pl.col("FAR_BESKST13")),
         "father_job_change": (pl.col("FAR_STILL").shift() != pl.col("FAR_STILL")),
-        "father_socioeconomic_status_change": (
-            pl.col("FAR_SOCIO13").shift() != pl.col("FAR_SOCIO13")
-        ),
+        "father_socioeconomic_status_change": (pl.col("FAR_SOCIO13").shift() != pl.col("FAR_SOCIO13")),
     }
 
     MOTHER_EVENT_DEFINITIONS: dict[str, Any] = {
         "mother_education_change": (pl.col("MOR_EDU_LVL").shift() != pl.col("MOR_EDU_LVL")),
         "mother_income_change": (pl.col("MOR_PERINDKIALT_13").cast(pl.Float64).diff() != 0),
-        "significant_income_increase_mother": (
-            pl.col("MOR_PERINDKIALT_13").cast(pl.Float64).pct_change() > 0.10
-        ),
-        "significant_income_decrease_mother": (
-            pl.col("MOR_PERINDKIALT_13").cast(pl.Float64).pct_change() < -0.10
-        ),
-        "mother_employment_status_change": (
-            pl.col("MOR_BESKST13").shift() != pl.col("MOR_BESKST13")
-        ),
+        "significant_income_increase_mother": (pl.col("MOR_PERINDKIALT_13").cast(pl.Float64).pct_change() > 0.10),
+        "significant_income_decrease_mother": (pl.col("MOR_PERINDKIALT_13").cast(pl.Float64).pct_change() < -0.10),
+        "mother_employment_status_change": (pl.col("MOR_BESKST13").shift() != pl.col("MOR_BESKST13")),
         "mother_job_change": (pl.col("MOR_STILL").shift() != pl.col("MOR_STILL")),
-        "mother_socioeconomic_status_change": (
-            pl.col("MOR_SOCIO13").shift() != pl.col("MOR_SOCIO13")
-        ),
+        "mother_socioeconomic_status_change": (pl.col("MOR_SOCIO13").shift() != pl.col("MOR_SOCIO13")),
     }
 
     model_config = SettingsConfigDict(
@@ -217,9 +201,7 @@ class Settings(BaseSettings):
     @staticmethod
     def get_mapping_path(filename: str) -> Path:
         """Get the path to a mapping file."""
-        with pkg_resources.as_file(
-            pkg_resources.files("cdef_cohort").joinpath("mappings", filename)
-        ) as path:
+        with pkg_resources.as_file(pkg_resources.files("cdef_cohort").joinpath("mappings", filename)) as path:
             return Path(path)
 
     @computed_field  # type: ignore[prop-decorator]

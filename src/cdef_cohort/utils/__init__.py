@@ -1,4 +1,4 @@
-from . import config, date, event, harmonize_lpr, hash_utils, icd, isced, mappings, types
+from . import config, date, event, harmonize_lpr, hash_utils, icd, isced, types
 
 __all__ = [
     "config",
@@ -8,6 +8,5 @@ __all__ = [
     "hash_utils",
     "icd",
     "isced",
-    "mappings",
     "types",
 ]

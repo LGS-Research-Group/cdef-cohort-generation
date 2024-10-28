@@ -3,6 +3,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from cdef_cohort.logging_config import logger
+
 from .base import ConfigurableService
 
 
@@ -13,18 +15,19 @@ class RegisterConfig(BaseModel):
     schema_def: dict[str, str]
     defaults: dict[str, Any]
 
+
 class ConfigServiceModel(BaseModel):
     register_configs: dict[str, RegisterConfig] = Field(default_factory=dict)
     mappings_path: Path
+
 
 class ConfigService(ConfigurableService):
     """Central configuration service"""
 
     def __init__(self, *, mappings_path: Path):
-        self.model = ConfigServiceModel(
-            mappings_path=mappings_path,
-            register_configs={}
-        )
+        self.model = ConfigServiceModel(mappings_path=mappings_path, register_configs={})
+        # Add this line to create the mappings directory if it doesn't exist
+        mappings_path.mkdir(parents=True, exist_ok=True)
 
     def initialize(self) -> None:
         """Initialize configuration service"""
@@ -47,8 +50,21 @@ class ConfigService(ConfigurableService):
         """Configure service with new settings"""
         if "mappings_path" in config:
             self.model.mappings_path = Path(config["mappings_path"])
+
         if "register_configs" in config:
-            self.model.register_configs.update(config["register_configs"])
+            new_configs = {}
+            for name, cfg in config["register_configs"].items():
+                # Create RegisterConfig instance for each configuration
+                register_config = RegisterConfig(
+                    name=name,
+                    input_files=cfg["input_files"],
+                    output_file=cfg["output_file"],
+                    schema_def=cfg.get("schema_def", {}),
+                    defaults=cfg["defaults"],
+                )
+                new_configs[name] = register_config
+
+            self.model.register_configs.update(new_configs)
 
         if not self.check_valid():
             raise ValueError("Invalid configuration")
@@ -56,39 +72,35 @@ class ConfigService(ConfigurableService):
     def check_valid(self) -> bool:
         """Check if configuration is valid"""
         try:
-            # Validate paths exist
+            # Validate mappings path exists
             if not self.mappings_path.exists():
+                logger.error(f"Mappings path does not exist: {self.mappings_path}")
                 return False
 
-            # Check register configs are valid
-            for config in self.register_configs.values():
-                # Validate register schema definitions
-                if not config.schema_def or not isinstance(config.schema_def, dict):
-                    return False
+            # Check if mappings path is a directory
+            if not self.mappings_path.is_dir():
+                logger.error(f"Mappings path is not a directory: {self.mappings_path}")
+                return False
 
-                # Validate input/output paths
-                input_path = Path(config.input_files)
-                output_path = Path(config.output_file)
+            # For register configs, only validate if they exist
+            if self.register_configs:
+                for name, config in self.register_configs.items():
+                    # Validate register schema definitions
+                    if not config.schema_def or not isinstance(config.schema_def, dict):
+                        logger.error(f"Invalid schema definition for register {name}")
+                        return False
 
-                if not input_path.parent.exists():
-                    return False
-                if not list(input_path.parent.glob(input_path.name)):
-                    return False
-
-                # Ensure output directory can be created
-                try:
-                    output_path.parent.mkdir(parents=True, exist_ok=True)
-                except (OSError, PermissionError):
-                    return False
-
-                # Validate defaults have required keys
-                required_defaults = {"columns_to_keep", "join_parents_only", "longitudinal"}
-                if not all(key in config.defaults for key in required_defaults):
-                    return False
+                    # Validate defaults have required keys
+                    required_defaults = {"columns_to_keep", "join_parents_only", "longitudinal"}
+                    missing_defaults = required_defaults - set(config.defaults.keys())
+                    if missing_defaults:
+                        logger.error(f"Missing required defaults for register {name}: {missing_defaults}")
+                        return False
 
             return True
 
-        except Exception:
+        except Exception as e:
+            logger.error(f"Error during configuration validation: {str(e)}")
             return False
 
     def get_register_config(self, register_name: str) -> dict[str, Any]:
