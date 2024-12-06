@@ -1,9 +1,10 @@
 import os
 from pathlib import Path
+from typing import Any
 
 import polars as pl
 
-from cdef_cohort.logging_config import logger
+from cdef_cohort.logging_config import logger, validate_log_level
 from cdef_cohort.schemas.all import (
     AKM_SCHEMA,
     BEF_SCHEMA,
@@ -12,6 +13,18 @@ from cdef_cohort.schemas.all import (
 )
 from cdef_cohort.services.container import get_container
 from cdef_cohort.settings import settings
+
+
+def ensure_population_file_exists() -> None:
+    """Ensure population file exists by creating it if necessary."""
+    from cdef_cohort.population import main as population_main
+
+    if not Path(settings.POPULATION_FILE).exists():
+        logger.info("Population file not found - creating it...")
+        population_main()
+        if not Path(settings.POPULATION_FILE).exists():
+            raise ValueError("Failed to create population file")
+        logger.info("Population file created successfully")
 
 
 def create_register_configs() -> dict:
@@ -77,14 +90,44 @@ def create_register_configs() -> dict:
                     "CPRTYPE",
                     "VERSION",
                 ],
+                "apply_mappings": ["isced"],
+            },
+        },
+    }
+
+
+def configure_statistics(config: dict[str, Any]) -> dict[str, Any]:
+    """Configure statistics calculation"""
+    output_dir = Path(config["output_dir"])
+    return {
+        "output_path": output_dir / "statistics",
+        "domains": {
+            "demographics": {
+                "numeric": ["household_size", "age"],
+                "categorical": ["sex", "municipality", "region"],
+                "temporal": ["birth_date"],
+            },
+            "education": {
+                "numeric": ["education_level"],
+                "categorical": ["education_field"],
+            },
+            "income": {
+                "numeric": ["annual_income", "disposable_income"],
+            },
+            "employment": {
+                "categorical": ["employment_status", "sector"],
             },
         },
     }
 
 
 def main(output_dir: Path | None = None) -> pl.LazyFrame:
-    logger.setLevel(settings.LOG_LEVEL.upper())
+    # Validate log level before setting
+    validated_level = validate_log_level(settings.LOG_LEVEL)
+    logger.setLevel(validated_level)
     logger.info("Starting cohort generation process")
+
+    ensure_population_file_exists()
 
     # Use string cache for the entire process
     with pl.StringCache():
@@ -149,10 +192,18 @@ def main(output_dir: Path | None = None) -> pl.LazyFrame:
                 {
                     "output_dir": str(output_dir / "tables"),
                     "study_years": [2005, 2010, 2015, 2020],
-                    "population_file": str(settings.POPULATION_FILE),
+                    "analytical_data_path": str(output_dir / "analytical_data"),
                 }
             )
             logger.info("Table service configured")
+
+            # # Configure statistics service
+            # try:
+            #     statistics_config = configure_statistics({"output_dir": str(output_dir) if output_dir else "."})
+            #     container.get_statistics_service().configure(statistics_config)
+            # except Exception as e:
+            #     logger.error(f"Error configuring statistics service: {e}")
+            #     raise
 
             # Configure pipeline service last
             container.get_pipeline_service().configure(
@@ -227,57 +278,18 @@ def main(output_dir: Path | None = None) -> pl.LazyFrame:
             # Get the final result
             final_result = container.get_pipeline_service().get_final_result(results)
 
-            # Generate tables - Add this section here
+            # Generate tables
             try:
-                logger.info("Preparing data for table generation")
-
-                # Get required data frames from pipeline results
-                population_df = results.get("population")
-                if population_df is None:
-                    raise ValueError("Population data not found in pipeline results")
-
-                # Initialize combined_data with population
-                combined_data = population_df
-
-                # Function to safely join with longitudinal data
-                def safe_join_longitudinal(base_df: pl.LazyFrame, data: pl.LazyFrame | None, name: str) -> pl.LazyFrame:
-                    if data is None:
-                        logger.warning(f"{name} data not found in pipeline results - skipping")
-                        return base_df
-                    try:
-                        latest_data = (
-                            data.filter(pl.col("year") == pl.col("year").max())
-                            if "year" in data.collect_schema()
-                            else data
-                        )
-                        return base_df.join(latest_data, on="PNR", how="left")
-                    except Exception as e:
-                        logger.warning(f"Error joining {name} data: {str(e)} - skipping")
-                        return base_df
-
-                # Safely join each dataset
-                combined_data = safe_join_longitudinal(combined_data, results.get("bef_longitudinal"), "BEF")
-                combined_data = safe_join_longitudinal(combined_data, results.get("health"), "Health")
-                combined_data = safe_join_longitudinal(combined_data, results.get("ind_longitudinal"), "IND")
-                combined_data = safe_join_longitudinal(combined_data, results.get("uddf_longitudinal"), "UDDF")
-                combined_data = safe_join_longitudinal(combined_data, results.get("akm_longitudinal"), "AKM")
-
-                # Log available columns after joining
-                logger.debug(f"Available columns in combined data: {combined_data.collect_schema()}")
-
                 logger.info("Generating descriptive statistics tables")
                 table_service = container.get_table_service()
 
                 # Generate unstratified table
-                tables = table_service.create_table_one(combined_data)
+                tables = table_service.create_table_one()  # No need to pass data
                 table_service.save_tables(tables, prefix="table_one_unstratified")
 
                 # Generate sex-stratified table
-                if "KOEN" in combined_data.collect_schema():
-                    stratified_tables = table_service.create_table_one(combined_data, stratify_by="KOEN")
-                    table_service.save_tables(stratified_tables, prefix="table_one_stratified_by_sex")
-                else:
-                    logger.warning("KOEN column not found - skipping sex-stratified table")
+                stratified_tables = table_service.create_table_one(stratify_by="sex")  # Using standardized column name
+                table_service.save_tables(stratified_tables, prefix="table_one_stratified_by_sex")
 
                 logger.info("Tables generated successfully")
 

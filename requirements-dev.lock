@@ -17,6 +17,8 @@ adbc-driver-sqlite==1.2.0
     # via polars
 altair==5.4.1
     # via polars
+    # via polars-ds
+    # via vegafusion
 annotated-types==0.7.0
     # via pydantic
 attrs==24.2.0
@@ -66,8 +68,11 @@ fsspec==2024.9.0
     # via pyiceberg
 gevent==24.2.1
     # via polars
+graphviz==0.20.3
+    # via polars-ds
 great-tables==0.13.0
     # via polars
+    # via polars-ds
 greenlet==3.1.1 ; (platform_machine != 'AMD64' and platform_machine != 'WIN32' and platform_machine != 'aarch64' and platform_machine != 'amd64' and platform_machine != 'ppc64le' and platform_machine != 'win32' and platform_machine != 'x86_64' and platform_python_implementation == 'CPython') or (python_full_version < '3.13' and platform_machine == 'AMD64') or (python_full_version < '3.13' and platform_machine == 'WIN32') or (python_full_version < '3.13' and platform_machine == 'aarch64') or (python_full_version < '3.13' and platform_machine == 'amd64') or (python_full_version < '3.13' and platform_machine == 'ppc64le') or (python_full_version < '3.13' and platform_machine == 'win32') or (python_full_version < '3.13' and platform_machine == 'x86_64') or (python_full_version >= '3.13' and platform_python_implementation == 'CPython')
     # via gevent
     # via sqlalchemy
@@ -157,6 +162,7 @@ pandas==2.2.3
     # via polars
     # via seaborn
     # via statsmodels
+    # via vegafusion
 pathspec==0.12.1
     # via hatchling
 patsy==0.5.6
@@ -173,12 +179,20 @@ pluggy==1.5.0
     # via pytest
 polars==1.9.0
     # via cdef-cohort
+    # via polars-ds
+polars-ds==0.6.1
+    # via cdef-cohort
+protobuf==5.28.3
+    # via vegafusion
+psutil==6.1.0
+    # via vegafusion
 pyarrow==17.0.0
     # via adbc-driver-manager
     # via adbc-driver-sqlite
     # via deltalake
     # via fastexcel
     # via polars
+    # via vegafusion
 pycparser==2.22 ; platform_python_implementation == 'CPython' and sys_platform == 'win32'
     # via cffi
 pydantic==2.9.2
@@ -267,6 +281,12 @@ urllib3==2.2.3
     # via requests
 varint==1.0.2
     # via imohash
+vegafusion==1.6.9
+    # via polars-ds
+vegafusion-python-embed==1.6.9
+    # via vegafusion
+vl-convert-python==1.7.0
+    # via vegafusion
 wrapt==1.16.0
     # via formulaic
 xlsx2csv==0.8.3

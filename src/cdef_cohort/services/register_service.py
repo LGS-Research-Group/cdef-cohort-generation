@@ -9,6 +9,7 @@ from cdef_cohort.models.config import RegisterConfig
 from cdef_cohort.services.base import ConfigurableService
 from cdef_cohort.services.config_service import ConfigService
 from cdef_cohort.services.data_service import DataService
+from cdef_cohort.services.mapping_service import MappingService
 
 
 class RegisterService(ConfigurableService):
@@ -17,6 +18,7 @@ class RegisterService(ConfigurableService):
         self.config_service = config_service
         self._registers: dict[str, RegisterConfig] = {}
         self._cached_data: dict[str, pl.LazyFrame] = {}
+        self.mapping_service: MappingService | None = None
 
     def configure(self, config: dict[str, Any]) -> None:
         """Configure register service with register definitions"""
@@ -148,6 +150,18 @@ class RegisterService(ConfigurableService):
 
         return valid_columns, df
 
+    def process_education_data(self, df: pl.LazyFrame) -> pl.LazyFrame:
+        """Process education data with ISCED mapping"""
+        if "HFAUDD" not in df.collect_schema():
+            logger.warning("HFAUDD column not found in education data")
+            return df
+
+        if self.mapping_service is None:
+            logger.warning("Mapping service not initialized - skipping ISCED mapping")
+            return df
+
+        return self.mapping_service.apply_isced_mapping(df)
+
     def _apply_schema(self, df: pl.LazyFrame, schema_def: dict[str, str], register_name: str) -> pl.LazyFrame:
         """Apply schema definition to DataFrame"""
         available_columns = set(df.collect_schema().names())
@@ -228,6 +242,8 @@ class RegisterService(ConfigurableService):
         """Apply default transformations"""
         if cols_to_keep := defaults.get("columns_to_keep"):
             df = df.select(cols_to_keep)
+        elif cols_to_drop := defaults.get("columns_to_drop"):
+            df = df.drop(cols_to_drop)
 
         if defaults.get("longitudinal", False):
             df = self._prepare_longitudinal_data(df, defaults.get("temporal_key", "year"))
@@ -235,7 +251,13 @@ class RegisterService(ConfigurableService):
         return df
 
     def _prepare_longitudinal_data(self, df: pl.LazyFrame, temporal_key: str) -> pl.LazyFrame:
-        """Prepare longitudinal data structure"""
+        """Prepare longitudinal data structure with clean column names"""
+        # Ensure temporal key exists
+        if temporal_key not in df.collect_schema():
+            logger.warning(f"Temporal key {temporal_key} not found in data")
+            return df
+
+        # Sort by temporal key and PNR
         return df.sort([temporal_key, "PNR"])
 
     def initialize(self) -> None:
@@ -243,10 +265,16 @@ class RegisterService(ConfigurableService):
         if not self.check_valid():
             raise ValueError("Invalid configuration")
 
+        if self.mapping_service is None:
+            raise ValueError("Mapping service not initialized")
+
     def shutdown(self) -> None:
         """Clean up service resources"""
         self._cached_data.clear()
 
     def check_valid(self) -> bool:
         """Validate service configuration"""
+        if self.mapping_service is None:
+            logger.warning("Mapping service not initialized")
+            return False
         return True

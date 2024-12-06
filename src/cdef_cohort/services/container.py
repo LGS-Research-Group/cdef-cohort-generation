@@ -11,6 +11,8 @@ from .mapping_service import MappingService
 from .pipeline_service import PipelineService
 from .population_service import PopulationService
 from .register_service import RegisterService
+
+# from .statistics_service import StatisticsService
 from .table_service import TableService
 
 
@@ -32,6 +34,7 @@ class ServiceContainer:
         self._cohort_service: CohortService | None = None
         self._analytical_data_service: AnalyticalDataService | None = None
         self._table_service: TableService | None = None
+        #  self._statistics_service: StatisticsService | None = None
 
         # Dictionary for additional services
         self._services: dict[str, BaseService] = {}
@@ -50,6 +53,7 @@ class ServiceContainer:
             self._pipeline_service,
             self._cohort_service,
             self._table_service,
+            #  self._statistics_service,
         ]
 
         for service in services:
@@ -73,6 +77,7 @@ class ServiceContainer:
             self._pipeline_service,
             self._cohort_service,
             self._table_service,
+            # self._statistics_service,
         ]
 
         for service in services:
@@ -81,6 +86,12 @@ class ServiceContainer:
 
         for service in self._services.values():
             service.shutdown()
+
+    # def get_statistics_service(self) -> StatisticsService:
+    #     """Get or create the statistics service instance."""
+    #     if self._statistics_service is None:
+    #         self._statistics_service = StatisticsService()
+    #     return self._statistics_service
 
     def get_table_service(self) -> TableService:
         """Get or create the table service instance."""
@@ -119,9 +130,17 @@ class ServiceContainer:
     def get_register_service(self) -> RegisterService:
         """Get or create the register service instance."""
         if self._register_service is None:
+            data_service = self.get_data_service()
+            config_service = self._config_service
+            mapping_service = self.get_mapping_service()
+
             self._register_service = RegisterService(
-                data_service=self.get_data_service(), config_service=self._config_service
+                data_service=data_service,
+                config_service=config_service,
             )
+            # Set mapping service after initialization
+            self._register_service.mapping_service = mapping_service
+
         return self._register_service
 
     def get_pipeline_service(self) -> PipelineService:

@@ -7,10 +7,58 @@ import polars as pl
 
 from cdef_cohort.logging_config import logger
 from cdef_cohort.models.analytical_data import AnalyticalDataConfig
+from cdef_cohort.models.statistics import (
+    CategoricalStatistic,
+    NumericStatistic,
+    StatisticType,
+    TemporalStatistic,
+)
 
 from .base import ConfigurableService
 from .cohort_service import CohortService
 from .data_service import DataService
+
+
+class AnalyticalDataStats:
+    """Helper class for statistics calculations"""
+
+    @staticmethod
+    def calculate_numeric_stats(df: pl.LazyFrame, column: str) -> pl.LazyFrame:
+        return df.select(
+            [
+                pl.col(column).count().alias(f"{column}_count"),
+                pl.col(column).mean().alias(f"{column}_mean"),
+                pl.col(column).std().alias(f"{column}_std"),
+                pl.col(column).median().alias(f"{column}_median"),
+                pl.col(column).quantile(0.25).alias(f"{column}_q1"),
+                pl.col(column).quantile(0.75).alias(f"{column}_q3"),
+                pl.col(column).min().alias(f"{column}_min"),
+                pl.col(column).max().alias(f"{column}_max"),
+                pl.col(column).is_null().sum().alias(f"{column}_missing"),
+            ]
+        )
+
+    @staticmethod
+    def calculate_categorical_stats(df: pl.LazyFrame, column: str) -> pl.LazyFrame:
+        total = df.select(pl.count()).collect().item()
+        return (
+            df.group_by(column)
+            .agg(pl.count().alias("count"))
+            .with_columns(
+                [(pl.col("count") / total * 100).alias("percentage"), pl.col(column).is_null().sum().alias("missing")]
+            )
+        )
+
+    @staticmethod
+    def calculate_temporal_stats(df: pl.LazyFrame, column: str) -> pl.LazyFrame:
+        return df.select(
+            [
+                pl.col(column).count().alias(f"{column}_count"),
+                pl.col(column).min().alias(f"{column}_min"),
+                pl.col(column).max().alias(f"{column}_max"),
+                pl.col(column).is_null().sum().alias(f"{column}_missing"),
+            ]
+        )
 
 
 class AnalyticalDataService(ConfigurableService):
@@ -18,8 +66,7 @@ class AnalyticalDataService(ConfigurableService):
         self.data_service = data_service
         self.cohort_service = cohort_service
         self._config: AnalyticalDataConfig | None = None
-        self._stage_results: dict[str, pl.LazyFrame] = {}
-        self._population_file: Path | None = None
+        self._stats = AnalyticalDataStats()
 
     def configure(self, config: dict[str, Any]) -> None:
         """Configure the service with pipeline results and settings."""
@@ -103,6 +150,9 @@ class AnalyticalDataService(ConfigurableService):
             # 4. Derived Zone
             self._create_derived_data(zones["derived"])
 
+            # 5. Generate Statistics - Add this section
+            self._add_summary_statistics()
+
             # Create metadata
             self._create_metadata(base_path)
 
@@ -150,8 +200,8 @@ class AnalyticalDataService(ConfigurableService):
         return pl.concat([static_data, father_data, mother_data], how="vertical")
 
     def _create_longitudinal_data(self, output_path: Path) -> None:
-        """Create longitudinal data by domain."""
-        if not self._config:  # Add null check
+        """Create longitudinal data by domain"""
+        if not self._config:
             raise ValueError("Configuration not set")
 
         for domain in self._config.domains.values():
@@ -164,6 +214,12 @@ class AnalyticalDataService(ConfigurableService):
             for source in domain.sources:
                 if source in self._stage_results:
                     df = self._stage_results[source]
+
+                    # Ensure year column exists
+                    if "year" not in df.collect_schema():
+                        logger.warning(f"Year column missing in {source} - skipping")
+                        continue
+
                     self.data_service.write_parquet(df, domain_path / f"{source}.parquet", partition_by="year")
 
     def _create_family_data(self) -> pl.DataFrame:
@@ -280,3 +336,346 @@ class AnalyticalDataService(ConfigurableService):
                     errors.append(f"Parent directory for zone {zone_name} does not exist: {zone_path.parent}")
 
         return errors
+
+    def _add_summary_statistics(self) -> None:
+        """Calculate and store summary statistics for all zones."""
+        if not self._config:
+            raise ValueError("Configuration not set")
+
+        try:
+            stats_path = self._config.base_path / "derived" / "statistics"
+            stats_path.mkdir(parents=True, exist_ok=True)
+
+            # Calculate static statistics
+            logger.info("Calculating static statistics")
+            static_data = pl.scan_parquet(self._config.zones["static"] / "individual_attributes.parquet")
+            static_stats = self._calculate_static_statistics(static_data)
+            if not static_stats.collect().is_empty():
+                static_stats.collect().write_parquet(stats_path / "static_statistics.parquet")
+
+            # Calculate family statistics
+            logger.info("Calculating family statistics")
+            family_data = pl.scan_parquet(self._config.zones["family"] / "family_relationships.parquet")
+            family_stats = self._calculate_family_statistics(family_data)
+            if not family_stats.collect().is_empty():
+                family_stats.collect().write_parquet(stats_path / "family_statistics.parquet")
+
+            # Calculate longitudinal statistics
+            logger.info("Calculating longitudinal statistics")
+            longitudinal_path = stats_path / "longitudinal"
+            longitudinal_path.mkdir(exist_ok=True)
+
+            # Calculate stats for each domain
+            for domain in self._config.domains.values():
+                if domain.temporal:
+                    logger.info(f"Calculating statistics for domain: {domain.name}")
+                    try:
+                        # Read domain data
+                        domain_path = self._config.zones["longitudinal"] / domain.name
+                        if not domain_path.exists():
+                            logger.warning(f"No data found for domain: {domain.name}")
+                            continue
+
+                        domain_data = pl.scan_parquet(domain_path)
+                        domain_stats = self._calculate_domain_statistics(domain, domain_data)
+
+                        if not domain_stats.collect().is_empty():
+                            domain_stats.collect().write_parquet(
+                                longitudinal_path / f"{domain.name}_statistics.parquet", partition_by="year"
+                            )
+                    except Exception as e:
+                        logger.error(f"Error processing domain {domain.name}: {str(e)}")
+                        continue
+
+        except Exception as e:
+            logger.error(f"Error calculating summary statistics: {str(e)}")
+            raise
+
+    def _calculate_static_statistics(self, data: pl.LazyFrame) -> pl.LazyFrame:
+        """Calculate statistics for static attributes."""
+        numeric_cols = ["age"]
+        categorical_cols = ["sex", "role"]
+        temporal_cols = ["birth_date"]
+
+        all_stats = []
+
+        # For numeric columns
+        for col in numeric_cols:
+            if col in data.collect_schema():
+                data = data.with_columns(pl.col(col).cast(pl.Float64))  # Ensure column is Float64
+                stats = self.calculate_numeric_statistics(data, col)
+                stats_df = pl.DataFrame(
+                    {
+                        "column": [col],
+                        "stat_type": ["numeric"],
+                        "count": [stats.count],
+                        "value": [stats.mean],
+                        "std": [stats.std],
+                        "missing": [stats.missing],
+                    }
+                )
+                all_stats.append(stats_df.lazy())
+
+        # For categorical columns
+        for col in categorical_cols:
+            if col in data.collect_schema():
+                stats = self.calculate_categorical_statistics(data, col)
+                stats_df = pl.DataFrame(
+                    {
+                        "column": [col],
+                        "stat_type": ["categorical"],
+                        "count": [sum(stats.categories.values())],
+                        "value": [max(stats.percentages.values())],
+                        "std": [0.0],  # Changed from None to 0.0
+                        "missing": [stats.missing],
+                    }
+                )
+                all_stats.append(stats_df.lazy())
+
+        # For temporal columns
+        for col in temporal_cols:
+            if col in data.collect_schema():
+                data = data.with_columns(pl.col(col).cast(pl.Date))  # Ensure column is Date
+                stats = self.calculate_temporal_statistics(data, col)
+                stats_df = pl.DataFrame(
+                    {
+                        "column": [col],
+                        "stat_type": ["temporal"],
+                        "count": [stats.count],
+                        "value": [stats.min],  # Convert to numeric representation
+                        "std": [0.0],  # Changed from None to 0.0
+                        "missing": [stats.missing],
+                    }
+                )
+                all_stats.append(stats_df.lazy())
+
+        return (
+            pl.concat(all_stats) if all_stats else pl.LazyFrame([])
+        )  # Return an empty LazyFrame if all_stats is empty
+
+    def _calculate_family_statistics(self, data: pl.LazyFrame) -> pl.LazyFrame:
+        """Calculate statistics for family relationships."""
+        numeric_cols = ["household_size", "number_of_children"]
+        categorical_cols = ["family_type"]
+        temporal_cols = ["father_birth_date", "mother_birth_date"]
+
+        all_stats = []
+
+        # For numeric columns
+        for col in numeric_cols:
+            if col in data.collect_schema():
+                data = data.with_columns(pl.col(col).cast(pl.Float64))  # Ensure column is Float64
+                stats = self.calculate_numeric_statistics(data, col)
+                stats_df = pl.DataFrame(
+                    {
+                        "column": [col],
+                        "stat_type": ["numeric"],
+                        "count": [stats.count],
+                        "value": [stats.mean],
+                        "std": [stats.std],
+                        "missing": [stats.missing],
+                    }
+                )
+                all_stats.append(stats_df.lazy())
+
+        # For categorical columns
+        for col in categorical_cols:
+            if col in data.collect_schema():
+                stats = self.calculate_categorical_statistics(data, col)
+                stats_df = pl.DataFrame(
+                    {
+                        "column": [col],
+                        "stat_type": ["categorical"],
+                        "count": [sum(stats.categories.values())],
+                        "value": [max(stats.percentages.values())],
+                        "std": [0.0],
+                        "missing": [stats.missing],
+                    }
+                )
+                all_stats.append(stats_df.lazy())
+
+        # For temporal columns
+        for col in temporal_cols:
+            if col in data.collect_schema():
+                data = data.with_columns(pl.col(col).cast(pl.Date))  # Ensure column is Date
+                stats = self.calculate_temporal_statistics(data, col)
+                stats_df = pl.DataFrame(
+                    {
+                        "column": [col],
+                        "stat_type": ["temporal"],
+                        "count": [stats.count],
+                        "value": [stats.min],
+                        "std": [0.0],
+                        "missing": [stats.missing],
+                    }
+                )
+                all_stats.append(stats_df.lazy())
+
+        return (
+            pl.concat(all_stats) if all_stats else pl.LazyFrame([])
+        )  # Return an empty LazyFrame if all_stats is empty
+
+    def _calculate_domain_statistics(self, domain: Any, data: pl.LazyFrame) -> pl.LazyFrame:
+        """Calculate statistics for a specific domain."""
+        # First check if data has a year column
+        schema = data.collect_schema()
+        if "year" not in schema:
+            logger.warning(f"No year column found in data for domain {domain.name}")
+            return pl.LazyFrame()  # Return empty frame if no year column
+
+        stats_config = {
+            "demographics": {"numeric": ["household_size"], "categorical": ["municipality", "region"], "temporal": []},
+            "education": {"numeric": ["education_level"], "categorical": ["education_field"], "temporal": []},
+            "income": {"numeric": ["annual_income", "disposable_income"], "categorical": [], "temporal": []},
+            "employment": {"numeric": [], "categorical": ["employment_status", "sector"], "temporal": []},
+        }
+
+        domain_config = stats_config.get(domain.name, {"numeric": [], "categorical": [], "temporal": []})
+        all_stats = []
+
+        try:
+            # Safely get unique years
+            years = data.select(pl.col("year")).unique().collect().get_column("year").to_list()
+
+            if not years:
+                logger.warning(f"No years found in data for domain {domain.name}")
+                return pl.LazyFrame()
+
+            for year in years:
+                year_data = data.filter(pl.col("year") == year)
+                year_stats = []
+
+                # For numeric columns
+                for col in domain_config["numeric"]:
+                    if col in year_data.collect_schema():
+                        year_data = year_data.with_columns(pl.col(col).cast(pl.Float64))  # Ensure column is Float64
+                        stats = self.calculate_numeric_statistics(year_data, col)
+                        stats_df = pl.DataFrame(
+                            {
+                                "column": [col],
+                                "stat_type": ["numeric"],
+                                "count": [stats.count],
+                                "value": [stats.mean],
+                                "std": [stats.std],
+                                "missing": [stats.missing],
+                                "year": [year],
+                            }
+                        )
+                        year_stats.append(stats_df.lazy())
+
+                # For categorical columns
+                for col in domain_config["categorical"]:
+                    if col in year_data.collect_schema():
+                        stats = self.calculate_categorical_statistics(year_data, col)
+                        stats_df = pl.DataFrame(
+                            {
+                                "column": [col],
+                                "stat_type": ["categorical"],
+                                "count": [sum(stats.categories.values())],
+                                "value": [max(stats.percentages.values())],
+                                "std": [0.0],
+                                "missing": [stats.missing],
+                                "year": [year],
+                            }
+                        )
+                        year_stats.append(stats_df.lazy())
+
+                if year_stats:
+                    all_stats.extend(year_stats)
+
+            return pl.concat(all_stats) if all_stats else pl.LazyFrame()
+
+        except Exception as e:
+            logger.error(f"Error calculating domain statistics for {domain.name}: {str(e)}")
+            return pl.LazyFrame()
+
+    def calculate_numeric_statistics(self, df: pl.LazyFrame, column: str) -> NumericStatistic:
+        """Calculate numeric statistics for a column"""
+        try:
+            stats = df.select(
+                [
+                    pl.col(column).count().alias("count"),
+                    pl.col(column).mean().alias("mean"),
+                    pl.col(column).std().alias("std"),
+                    pl.col(column).median().alias("median"),
+                    pl.col(column).quantile(0.25).alias("q1"),
+                    pl.col(column).quantile(0.75).alias("q3"),
+                    pl.col(column).min().alias("min"),
+                    pl.col(column).max().alias("max"),
+                    pl.col(column).is_null().sum().alias("missing"),
+                ]
+            ).collect()
+
+            return NumericStatistic(
+                count=stats["count"][0],
+                mean=stats["mean"][0],
+                std=stats["std"][0],
+                median=stats["median"][0],
+                q1=stats["q1"][0],
+                q3=stats["q3"][0],
+                min=stats["min"][0],
+                max=stats["max"][0],
+                missing=stats["missing"][0],
+            )
+        except Exception as e:
+            logger.error(f"Error calculating numeric statistics for {column}: {e}")
+            raise
+
+    def calculate_categorical_statistics(self, df: pl.LazyFrame, column: str) -> CategoricalStatistic:
+        """Calculate categorical statistics for a column"""
+        try:
+            total = df.select(pl.count()).collect().item()
+
+            value_counts = df.group_by(column).agg(pl.count().alias("count")).sort("count", descending=True).collect()
+
+            categories = {
+                str(val): count
+                for val, count in zip(
+                    value_counts[column].to_list(),
+                    value_counts["count"].to_list(),
+                    strict=False,
+                )
+            }
+
+            percentages = {str(val): count / total * 100 for val, count in categories.items()}
+
+            missing = df.select(pl.col(column).is_null().sum()).collect().item()
+
+            return CategoricalStatistic(categories=categories, percentages=percentages, missing=missing, total=total)
+        except Exception as e:
+            logger.error(f"Error calculating categorical statistics for {column}: {e}")
+            raise
+
+    def calculate_temporal_statistics(self, df: pl.LazyFrame, column: str) -> TemporalStatistic:
+        """Calculate temporal statistics for a column"""
+        try:
+            stats = df.select(
+                [
+                    pl.col(column).count().alias("count"),
+                    pl.col(column).min().alias("min"),
+                    pl.col(column).max().alias("max"),
+                    pl.col(column).is_null().sum().alias("missing"),
+                ]
+            ).collect()
+
+            return TemporalStatistic(
+                count=stats["count"][0],
+                min=str(stats["min"][0]),
+                max=str(stats["max"][0]),
+                missing=stats["missing"][0],
+            )
+        except Exception as e:
+            logger.error(f"Error calculating temporal statistics for {column}: {e}")
+            raise
+
+    def get_column_type(self, df: pl.LazyFrame, column: str) -> StatisticType:
+        """Determine the type of statistics to calculate for a column"""
+        schema = df.collect_schema()
+        dtype = schema[column]
+
+        if dtype in [pl.Float64, pl.Float32, pl.Int64, pl.Int32, pl.Int16, pl.Int8]:
+            return StatisticType.NUMERIC
+        elif dtype in [pl.Date, pl.Datetime]:
+            return StatisticType.TEMPORAL
+        else:
+            return StatisticType.CATEGORICAL

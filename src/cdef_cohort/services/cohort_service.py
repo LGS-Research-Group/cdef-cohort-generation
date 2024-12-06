@@ -63,13 +63,37 @@ class CohortService(ConfigurableService):
 
     def identify_severe_chronic_disease(self) -> pl.LazyFrame:
         """Process health data and identify children with severe chronic diseases."""
-        # Process the health data and store it for later use
+        # Count initial population
+        initial_population = self.data_service.read_parquet(self._config["population_file"]).collect().height
+        logger.info(f"Initial population size: {initial_population}")
+
+        # Process health data
         self._health_data = self._process_health_data()
 
-        # Get the SCD results
+        # Get SCD results
         scd_result = self._get_scd_results(self._health_data)
 
-        # Return the processed results
+        # Validate final results
+        final_result = scd_result.collect()
+        final_count = final_result.height
+
+        if final_count != initial_population:
+            raise ValueError(
+                f"Population count mismatch: Started with {initial_population}, " f"ended with {final_count}"
+            )
+
+        # Analyze results
+        summary = {
+            "total_patients": final_count,
+            "scd_positive": final_result.filter(pl.col("is_scd")).height,
+            "scd_negative": final_result.filter(~pl.col("is_scd")).height,
+            "has_scd_date": final_result.filter(pl.col("first_scd_date").is_not_null()).height,
+        }
+
+        # Log summary
+        for key, value in summary.items():
+            logger.info(f"{key}: {value}")
+
         return scd_result
 
     def _apply_scd_algorithm(
@@ -86,6 +110,15 @@ class CohortService(ConfigurableService):
         Returns:
             LazyFrame with SCD flags and dates aggregated at patient level
         """
+        # Log initial count
+        initial_count = data.select(pl.col(id_col)).unique().collect().height
+        logger.info(f"Initial number of unique patients: {initial_count}")
+
+        # Input validation
+        for col in diagnosis_cols + [date_col, id_col]:
+            if col not in data.collect_schema().keys():
+                raise ValueError(f"Required column {col} not found in data")
+
         # Define SCD codes
         scd_codes = [
             "D55",
@@ -312,40 +345,67 @@ class CohortService(ConfigurableService):
             "Q99",
         ]
 
-        # Create SCD conditions for each diagnosis column
+        # Create SCD conditions with NULL handling
         scd_conditions = []
         for diag_col in diagnosis_cols:
+            # Handle NULL values in diagnosis columns
+            safe_diag = pl.col(diag_col).fill_null("").str.to_uppercase()
+
             scd_condition = (
-                pl.col(diag_col).str.to_uppercase().str.slice(1, 4).is_in(scd_codes)
-                | pl.col(diag_col).str.to_uppercase().str.slice(1, 5).is_in(scd_codes)
-                | (
-                    (pl.col(diag_col).str.to_uppercase().str.slice(1, 4) >= pl.lit("E74"))
-                    & (pl.col(diag_col).str.to_uppercase().str.slice(1, 4) <= pl.lit("E84"))
-                )
-                | (
-                    (pl.col(diag_col).str.to_uppercase().str.slice(1, 5) >= pl.lit("P941"))
-                    & (pl.col(diag_col).str.to_uppercase().str.slice(1, 5) <= pl.lit("P949"))
-                )
+                safe_diag.str.slice(1, 4).is_in(scd_codes)
+                | safe_diag.str.slice(1, 5).is_in(scd_codes)
+                | ((safe_diag.str.slice(1, 4) >= pl.lit("E74")) & (safe_diag.str.slice(1, 4) <= pl.lit("E84")))
+                | ((safe_diag.str.slice(1, 5) >= pl.lit("P941")) & (safe_diag.str.slice(1, 5) <= pl.lit("P949")))
             )
             scd_conditions.append(scd_condition)
 
         # Combine conditions and create result
-        is_scd_expr = pl.any_horizontal(*scd_conditions)
+        is_scd_expr = pl.any_horizontal(*scd_conditions).fill_null(False)  # Explicitly fill NULLs with False
 
+        # Create intermediate result with validation
         result = data.with_columns(
             [
-                is_scd_expr.alias("is_scd"),
+                is_scd_expr.cast(pl.Boolean).alias("is_scd"),  # Explicitly cast to Boolean
                 pl.when(is_scd_expr).then(pl.col(date_col)).otherwise(None).alias("first_scd_date"),
             ]
         )
 
-        # Aggregate to patient level
-        return result.group_by(id_col).agg(
-            [
-                pl.col("is_scd").max().alias("is_scd"),
-                pl.col("first_scd_date").min().alias("first_scd_date"),
-            ]
+        # Log intermediate state
+        intermediate = result.collect()
+        logger.info("Intermediate processing state:")
+        logger.info(f"Total records: {intermediate.height}")
+        logger.info(f"Unique patients: {intermediate.select(pl.col(id_col)).unique().height}")
+        logger.info(f"Value counts for is_scd: {intermediate.get_column('is_scd').value_counts()}")
+
+        # Aggregate to patient level with validation
+        aggregated = (
+            result.group_by(id_col)
+            .agg(
+                [
+                    pl.col("is_scd")
+                    .cast(pl.Boolean)  # Ensure Boolean type
+                    .max()  # If any record is True, patient is marked as True
+                    .fill_null(False)  # Handle any remaining NULLs
+                    .alias("is_scd"),
+                    pl.col("first_scd_date").min().alias("first_scd_date"),
+                ]
+            )
+            .collect()
         )
+
+        # Final validation
+        final_count = aggregated.height
+        if final_count != initial_count:
+            raise ValueError(f"Patient count mismatch: Started with {initial_count}, ended with {final_count}")
+
+        # Validate final is_scd values
+        value_counts = aggregated.get_column("is_scd").value_counts()
+        logger.info(f"Final is_scd value counts: {value_counts}")
+
+        if not all(v in [True, False] for v in value_counts.get_column("is_scd")):
+            raise ValueError(f"Invalid values found in is_scd: {value_counts}")
+
+        return aggregated.lazy()
 
     def add_icd_descriptions(self, df: pl.LazyFrame, icd_file: Path) -> pl.LazyFrame:
         """Add ICD-10 descriptions to the dataframe.
